@@ -474,5 +474,22 @@
       "last_month": 578,
       "total": 2003
     }
+  },
+  {
+    "date": "2026-05-20",
+    "timestamp": 1779295884544,
+    "stars": 28,
+    "forks": 5,
+    "watchers": 4,
+    "open_issues": 56,
+    "total_issues": 0,
+    "releases": 3,
+    "size_kb": 59992,
+    "npm": {
+      "last_day": 1,
+      "last_week": 61,
+      "last_month": 565,
+      "total": 2004
+    }
   }
 ]
