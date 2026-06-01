@@ -1,18 +1,18 @@
 # Agent Shadow Brain — Live Stats
 
-_Auto-updated daily by the Viral Amplifier Bot. Last refresh: 2026-05-31._
+_Auto-updated daily by the Viral Amplifier Bot. Last refresh: 2026-06-01._
 
 | Metric | Value | 7d Δ |
 |---|---:|---:|
 | ⭐ GitHub Stars | **32** | +4 |
 | 🍴 Forks | 6 | — |
 | 👀 Watchers | 4 | — |
-| 📬 Issues (open) | 118 | — |
+| 📬 Issues (open) | 124 | — |
 | 🔖 Releases | 3 | — |
-| 📦 npm — last 24h | 1 | — |
-| 📦 npm — last 7d | 39 | -21 |
-| 📦 npm — last 30d | 210 | — |
-| 📦 npm — total | 2,053 | — |
+| 📦 npm — last 24h | 6 | — |
+| 📦 npm — last 7d | 24 | -19 |
+| 📦 npm — last 30d | 194 | — |
+| 📦 npm — total | 2,059 | — |
 
 [![Star History Chart](https://api.star-history.com/svg?repos=theihtisham/agent-shadow-brain&type=Date)](https://star-history.com/#theihtisham/agent-shadow-brain&Date)
 
