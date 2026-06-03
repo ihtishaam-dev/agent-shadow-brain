@@ -1855,6 +1855,7 @@ export interface TokenSpendRecord {
   id: string;
   agentTool: AgentTool;
   model: string;
+  provider?: string;
   inputTokens: number;
   outputTokens: number;
   estimatedCostUsd: number;
@@ -1862,13 +1863,27 @@ export interface TokenSpendRecord {
   timestamp: Date;
 }
 
+export interface TokenEconomyBucket {
+  spendUsd: number;
+  calls: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  lastSeen?: Date;
+}
+
 export interface TokenEconomyStats {
   totalSpendUsd: number;
   totalInputTokens: number;
   totalOutputTokens: number;
-  byAgent: Record<string, { spendUsd: number; calls: number }>;
-  byModel: Record<string, { spendUsd: number; calls: number }>;
-  byCategory: Record<string, { spendUsd: number; calls: number }>;
+  byAgent: Record<string, TokenEconomyBucket>;
+  byModel: Record<string, TokenEconomyBucket>;
+  byCategory: Record<string, TokenEconomyBucket>;
+  recentWindowDays: number;
+  recentSpendUsd: number;
+  recentByAgent: Record<string, TokenEconomyBucket>;
+  recentByModel: Record<string, TokenEconomyBucket>;
+  recentByCategory: Record<string, TokenEconomyBucket>;
+  lastRecord: TokenSpendRecord | null;
   monthlyProjectionUsd: number;
   savingsOpportunitiesUsd: number;
   suggestions: string[];

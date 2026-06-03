@@ -325,6 +325,45 @@ export type {
 export { DashboardServer } from './dashboard/server.js';
 export type { DashboardOptions } from './dashboard/server.js';
 
+// Brain - v6.0.3 Live Brain
+export {
+  LiveBrain,
+  getLiveBrain,
+  analyzeLiveBrainSnapshot,
+  buildTrainingJsonl,
+  buildTrainingRows,
+  evaluateRecallSnapshot,
+  formatLiveBrainBriefing,
+  rankMemoryEntries,
+  scoreLiveMemory,
+} from './brain/live-brain.js';
+export type {
+  LiveBrainAction,
+  LiveBrainActionPriority,
+  LiveBrainRecallEval,
+  LiveBrainRecallEvalCase,
+  LiveBrainReport,
+  LiveBrainReportOptions,
+  LiveBrainSnapshotOptions,
+  LiveBrainTrainingPackOptions,
+  LiveBrainTrainingRow,
+} from './brain/live-brain.js';
+
+// Brain - verified memory seeding workflow
+export {
+  MemorySeeder,
+  getMemorySeeder,
+  resetMemorySeeder,
+} from './brain/memory-seeder.js';
+export type {
+  CreateMemorySeedDraftInput,
+  MemorySeedApproval,
+  MemorySeedDraft,
+  SeedApprovalMode,
+  SeedApprover,
+  SeedDraftStatus,
+} from './brain/memory-seeder.js';
+
 // Watchers
 export { FileWatcher } from './watchers/file-watcher.js';
 export { GitWatcher } from './watchers/git-watcher.js';

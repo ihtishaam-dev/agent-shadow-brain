@@ -1,7 +1,7 @@
 {
   "name": "@theihtisham/agent-shadow-brain",
-  "version": "6.0.2",
-  "description": "Hive Mind for AI coding agents — the first open-source brain that works with sub-agents. v6.0.2 ships 19 world-first features: 5 viral artifacts (Brain Replay timeline, Brain DNA fingerprint card, Hive Voice consensus chart, Brain Time Capsule snapshots, Brain Diff Venn) + 14 advanced features (Brain Cinema auto-video, Brain Sonification codebase-as-music, Brain Trophies achievements, Brain Holiday Card year-in-review, Brain Coach proactive suggestions, Brain Quest gamified onboarding, Brain Notebook Jupyter-style explorer, Brain Reflex local-model inline completion, Brain Roast comedy code review, Brain Tarot 78-card divination, Brain ASCII terminal art, Brain Memes auto-generator, Brain 3D rotatable graph, Brain Doppelganger codebase-matching) + production infrastructure (real HNSW vector index, Constitution layer, Confidence Gate, multimodal llava vision, Markdown brain export, OTel-lite tracing, LoRA distillation pipeline, SWE-Bench eval harness). On top of v6.0's 22 features (SABB, causal chains, dream engine, swarm debate, branch brains, air-gap, voice mode, PR auto-review, team P2P sync). Local-first, free, MIT, zero telemetry.",
+  "version": "6.0.3",
+  "description": "Local-first memory and coordination layer for AI coding agents. Shadow Brain stores source-backed project lessons, recalls them across Codex, Claude Code, Cursor, Cline, OpenCode, and other tools, generates resume briefings, audits memory quality, exports training/eval JSONL, and exposes CLI/API/MCP surfaces with zero telemetry.",
   "main": "dist/index.js",
   "exports": {
     ".": "./dist/index.js"
@@ -16,6 +16,8 @@
     "watch": "tsc --watch",
     "test": "vitest run",
     "lint": "tsc --noEmit",
+    "verify": "npm run build && npm test",
+    "pack:dry": "npm pack --dry-run",
     "prepublishOnly": "npm run build",
     "postinstall": "node dist/brain/auto-setup.js 2>>~/.shadow-brain/install.log || true"
   },
@@ -136,7 +138,12 @@
     "local-first",
     "ollama",
     "forgetting-curve",
-    "sleep-consolidation"
+    "sleep-consolidation",
+    "live-brain",
+    "resume-pack",
+    "memory-quality",
+    "training-jsonl",
+    "source-backed-memory"
   ],
   "author": "ihtisham",
   "license": "MIT",
@@ -173,7 +180,12 @@
   "files": [
     "dist/**/*",
     "README.md",
-    "LICENSE"
+    "CHANGELOG.md",
+    "LICENSE",
+    "docs/launch/RELEASE_CHECKLIST_v6.0.3.md",
+    "docs/launch/RELEASE_NOTES_v6.0.3.md",
+    "tools/export-resume-pack.mjs",
+    "tools/record-global-memory.mjs"
   ],
   "publishConfig": {
     "access": "public"

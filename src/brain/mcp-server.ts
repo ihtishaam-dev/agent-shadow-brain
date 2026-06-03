@@ -55,6 +55,9 @@ export class MCPServer {
       global_timeline: this.handleGlobalTimeline.bind(this),
       firewall_check: this.handleFirewallCheck.bind(this),
       agent_handoff: this.handleAgentHandoff.bind(this),
+      live_brain_status: this.handleLiveBrainStatus.bind(this),
+      live_brain_brief: this.handleLiveBrainBrief.bind(this),
+      live_brain_train_pack: this.handleLiveBrainTrainPack.bind(this),
       // v6.0.0 — Hive Mind tools
       subagent_sliver: this.handleSubagentSliver.bind(this),
       subagent_quarantine_list: this.handleSubagentQuarantineList.bind(this),
@@ -335,7 +338,7 @@ export class MCPServer {
     const brain = getGlobalBrain();
     await Promise.all([sabb.init(), causal.init(), collisions.init(), dream.init(), rep.init(), tokens.init(), formal.init(), airgap.init(), brain.init()]);
     return {
-      version: '6.0.0',
+      version: '6.0.3',
       modules: {
         sabb: sabb.getStats(),
         causal: causal.stats(),
@@ -436,6 +439,44 @@ export class MCPServer {
     });
   }
 
+  private parseLiveBrainQueries(value: unknown): string[] | undefined {
+    if (Array.isArray(value)) return value.map(String).map(q => q.trim()).filter(Boolean);
+    if (typeof value === 'string' && value.trim()) return value.split('|').map(q => q.trim()).filter(Boolean);
+    return undefined;
+  }
+
+  private async handleLiveBrainStatus(params: Record<string, unknown>): Promise<unknown> {
+    const { getLiveBrain } = await import('./live-brain.js');
+    return getLiveBrain().report({
+      projectDir: (params.projectDir as string) || process.cwd(),
+      maxMemories: (params.maxMemories as number) ?? 12,
+      queries: this.parseLiveBrainQueries(params.queries),
+      globalFallback: params.globalFallback !== false,
+    });
+  }
+
+  private async handleLiveBrainBrief(params: Record<string, unknown>): Promise<unknown> {
+    const report = await this.handleLiveBrainStatus(params) as { agentBriefing: string; generatedAt: string; projectDir: string };
+    return {
+      generatedAt: report.generatedAt,
+      projectDir: report.projectDir,
+      markdown: report.agentBriefing,
+    };
+  }
+
+  private async handleLiveBrainTrainPack(params: Record<string, unknown>): Promise<unknown> {
+    const { getLiveBrain } = await import('./live-brain.js');
+    const jsonl = await getLiveBrain().trainingJsonl({
+      projectDir: (params.projectDir as string) || process.cwd(),
+      maxRows: (params.maxRows as number) ?? 200,
+      includeLowQuality: params.includeLowQuality === true,
+    });
+    return {
+      rowCount: jsonl ? jsonl.split('\n').filter(Boolean).length : 0,
+      jsonl,
+    };
+  }
+
   async start(): Promise<void> {
     this.server = http.createServer(async (req, res) => {
       if (!req.url) {
@@ -477,7 +518,7 @@ export class MCPServer {
         // Lightweight health endpoint for tool connectivity checks
         this.sendJSON(res, 200, {
           status: 'ok',
-          version: '5.2.0',
+          version: '6.0.3',
           uptime: process.uptime(),
           tools: Object.keys(this.toolHandlers).length,
         });
@@ -592,7 +633,7 @@ export class MCPServer {
       },
       serverInfo: {
         name: 'agent-shadow-brain',
-        version: '5.2.0',
+        version: '6.0.3',
         description: 'Cross-agent memory and safety layer for AI coding agents',
       },
     };
@@ -919,7 +960,7 @@ export class MCPServer {
   private async handleStatus(params: Record<string, unknown>): Promise<unknown> {
     const status = this.orchestrator.getStatus?.() || {};
     return {
-      version: '5.2.0',
+      version: '6.0.3',
       ...status,
     };
   }
@@ -948,7 +989,7 @@ export class MCPServer {
       const instance = (this.orchestrator as Record<string, unknown>)[mod.key];
       modules.push({
         name: mod.name,
-        version: '5.2.0',
+        version: '6.0.3',
         status: instance ? 'active' : 'idle',
       });
     }
@@ -1226,6 +1267,43 @@ export class MCPServer {
             projectDir: { type: 'string' },
             task: { type: 'string' },
             limit: { type: 'number' },
+          },
+        },
+      },
+      {
+        name: 'live_brain_status',
+        description: 'v6.0.3 live memory health report with source coverage, recall eval, hygiene actions, and resume context',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectDir: { type: 'string' },
+            maxMemories: { type: 'number' },
+            queries: { type: 'string', description: 'Pipe-separated recall eval queries' },
+            globalFallback: { type: 'boolean' },
+          },
+        },
+      },
+      {
+        name: 'live_brain_brief',
+        description: 'v6.0.3 source-backed markdown briefing for a fresh agent session or handoff',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectDir: { type: 'string' },
+            maxMemories: { type: 'number' },
+            globalFallback: { type: 'boolean' },
+          },
+        },
+      },
+      {
+        name: 'live_brain_train_pack',
+        description: 'v6.0.3 JSONL export for evals, distillation, or local fine-tuning pipelines',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectDir: { type: 'string' },
+            maxRows: { type: 'number' },
+            includeLowQuality: { type: 'boolean' },
           },
         },
       },

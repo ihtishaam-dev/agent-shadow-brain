@@ -216,27 +216,47 @@ export class GlobalBrain {
 
     const limit = opts.limit ?? 20;
     const minImp = opts.minImportance ?? 0;
-    const kwLower = opts.keywords?.map(k => k.toLowerCase()) ?? null;
+    const weakKeywords = new Set([
+      'a', 'an', 'and', 'are', 'as', 'for', 'from', 'in', 'into', 'is', 'of', 'on',
+      'or', 'the', 'to', 'with', 'ww2br',
+    ]);
+    const kwLower = opts.keywords
+      ?.map(k => k.trim().toLowerCase())
+      .filter(k => k && !/^\d{1,2}$/.test(k))
+      .filter(k => k.length > 2 && !weakKeywords.has(k)) ?? null;
 
-    const matches: GlobalEntry[] = [];
+    const matches: Array<{ entry: GlobalEntry; score: number }> = [];
     for (const e of this.entries.values()) {
       if (opts.projectId && e.projectId !== opts.projectId) continue;
       if (opts.agentTool && e.agentTool !== opts.agentTool) continue;
       if (opts.category && e.category !== opts.category) continue;
       if (e.importance < minImp) continue;
-      if (kwLower) {
-        const hay = e.content.toLowerCase();
-        if (!kwLower.some(k => hay.includes(k))) continue;
+      let score = 0;
+      if (kwLower?.length) {
+        const projectName = e.projectName.toLowerCase();
+        const agentTool = e.agentTool.toLowerCase();
+        const category = e.category.toLowerCase();
+        const content = e.content.toLowerCase();
+        const metadata = JSON.stringify(e.metadata ?? {}).toLowerCase();
+        for (const k of kwLower) {
+          if (category.includes(k)) score += 8;
+          if (content.includes(k)) score += 5;
+          if (metadata.includes(k)) score += 3;
+          if (agentTool.includes(k)) score += 1;
+          if (projectName.includes(k)) score += 1;
+        }
+        if (score <= 0) continue;
       }
-      matches.push(e);
+      matches.push({ entry: e, score });
     }
 
     matches.sort((a, b) => {
-      if (b.importance !== a.importance) return b.importance - a.importance;
-      return b.lastAccessed.getTime() - a.lastAccessed.getTime();
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.entry.importance !== a.entry.importance) return b.entry.importance - a.entry.importance;
+      return b.entry.lastAccessed.getTime() - a.entry.lastAccessed.getTime();
     });
 
-    const result = matches.slice(0, limit);
+    const result = matches.slice(0, limit).map(m => m.entry);
     if (result.length) this.stats.hits++;
     else this.stats.misses++;
     return result;
