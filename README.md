@@ -4,6 +4,14 @@ Local-first memory and coordination for AI coding agents.
 
 Version: 6.0.3
 
+<p align="center">
+  <img src="docs/launch/agent-shadow-brain-v6.0.3-banner.png" alt="Agent Shadow Brain shared local memory layer for AI agents" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/launch/github-trending-ready.svg" alt="GitHub Trending Ready - Agent Shadow Brain v6.0.3 live on npm" width="420">
+</p>
+
 Agent Shadow Brain gives tools like Codex, Claude Code, Cursor, Cline, OpenCode, Aider, and related MCP clients a shared local memory layer. It stores compact, source-backed lessons about projects, recalls them later, generates fresh-session briefings, audits memory quality, and exports JSONL training/eval packs.
 
 It does not change model weights by itself. It helps agents work better by giving them relevant, current, source-linked context before and during complex work.

@@ -1,0 +1,28 @@
+<svg width="560" height="80" viewBox="0 0 560 80" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">GitHub Trending Ready</title>
+  <desc id="desc">A badge for Agent Shadow Brain showing that version 6.0.3 is ready for GitHub visibility.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="560" y2="80" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#070A12"/>
+      <stop offset="0.52" stop-color="#081827"/>
+      <stop offset="1" stop-color="#11102A"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="560" y2="80" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9B6CFF"/>
+      <stop offset="0.5" stop-color="#35D6FF"/>
+      <stop offset="1" stop-color="#68F278"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-60%" width="160%" height="220%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="1.5" y="1.5" width="557" height="77" rx="16" fill="url(#bg)" stroke="url(#edge)" stroke-width="3"/>
+  <path d="M42 54V28M42 28L28 42M42 28L56 42" stroke="#68F278" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <path d="M78 54C113 20 156 61 190 27C220 -3 258 16 278 31" stroke="#35D6FF" stroke-width="4" stroke-linecap="round" opacity="0.75"/>
+  <text x="300" y="31" text-anchor="middle" fill="#F8FAFC" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22" font-weight="800" letter-spacing="1.5">GITHUB TRENDING READY</text>
+  <text x="300" y="56" text-anchor="middle" fill="#A8F4FF" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">Agent Shadow Brain v6.0.3 - live on npm</text>
+</svg>
