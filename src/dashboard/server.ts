@@ -7,6 +7,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { Orchestrator } from '../brain/orchestrator.js';
 import { BrainInsight } from '../types.js';
 import { AgentFirewall } from '../brain/agent-firewall.js';
+import { analyzeMemoryQuality, generateContextResumePack } from '../brain/context-continuity.js';
 import { getGlobalBrain, GlobalBrain } from '../brain/global-brain.js';
 import { V6_DASHBOARD_HTML } from './v6-dashboard-html.js';
 
@@ -509,9 +510,11 @@ export class DashboardServer {
         const airgap = getAirGapMode(); await airgap.init();
         const brain = getGlobalBrain(); await brain.init();
         const tokenReport = await tokens.report();
+        const runtime = this.getRuntimeContext();
         return send({
-          version: '6.0.0',
+          version: '6.0.3',
           localFirst: true,
+          runtime,
           totalAgentsConnected: brain.getStats().totalAgents,
           totalMemoriesStored: brain.getStats().totalEntries,
           modules: {
@@ -526,6 +529,153 @@ export class DashboardServer {
           },
           generatedAt: new Date(),
         });
+      }
+      case '/api/v6/ww2br-ops': {
+        const projectDir = String(qs.get('projectDir') || body.projectDir || this.getDefaultWorkflowProjectDir());
+        const brain = getGlobalBrain();
+        await brain.init();
+        const stats = brain.getStats();
+        const projectId = GlobalBrain.projectIdFor(projectDir);
+        let timeline = brain.timeline({ projectId, limit: 18 });
+        let scoped = true;
+        if (!timeline.length) {
+          scoped = false;
+          timeline = brain.timeline({ limit: 18 });
+        }
+        const memoryEntries = brain.recall({
+          projectId: scoped ? projectId : undefined,
+          minImportance: 0,
+          limit: 500,
+        });
+        const quality = analyzeMemoryQuality(memoryEntries);
+        const resumePack = generateContextResumePack({
+          projectDir,
+          projectName: projectDir.split(/[\\/]/).filter(Boolean).pop() ?? projectDir,
+          projectId,
+          entries: memoryEntries,
+          maxMemories: 12,
+        });
+        const agents = await this.getWorkflowAgentStatus(projectDir);
+        const categories: Record<string, number> = {};
+        for (const event of timeline) categories[event.category] = (categories[event.category] ?? 0) + 1;
+        return send({
+          projectDir,
+          projectName: projectDir.split(/[\\/]/).filter(Boolean).pop() ?? projectDir,
+          projectExists: await this.pathExists(projectDir),
+          projectScoped: scoped,
+          stats,
+          agents,
+          warnings: this.getWorkflowWarnings(projectDir, agents, timeline, scoped),
+          recent: timeline,
+          categories,
+          quality,
+          resumePack: {
+            generatedAt: resumePack.generatedAt,
+            stats: resumePack.stats,
+            warnings: resumePack.warnings,
+            suggestedRecallQueries: resumePack.suggestedRecallQueries,
+            blockers: resumePack.blockers.slice(0, 5),
+            topMemories: resumePack.topMemories.slice(0, 5),
+          },
+          generatedAt: new Date(),
+        });
+      }
+      case '/api/v6/ww2br-recall': {
+        const projectDir = String(qs.get('projectDir') || body.projectDir || this.getDefaultWorkflowProjectDir());
+        const query = String(qs.get('q') || qs.get('query') || (body.query ?? '')).trim();
+        const brain = getGlobalBrain();
+        await brain.init();
+        const projectId = GlobalBrain.projectIdFor(projectDir);
+        const common = {
+          agentTool: qs.get('agent') || body.agent || undefined,
+          category: qs.get('category') || body.category || undefined,
+          keywords: query ? query.split(/\s+/).filter(Boolean) : undefined,
+          minImportance: Number(qs.get('minImportance') ?? body.minImportance ?? 0),
+          limit: Number(qs.get('limit') ?? body.limit ?? 12),
+        };
+        const projectResults = brain.recall({ projectId, ...common });
+        const results = projectResults.length ? projectResults : brain.recall(common);
+        return send({
+          projectDir,
+          projectScoped: projectResults.length > 0,
+          query,
+          results,
+          generatedAt: new Date(),
+        });
+      }
+      case '/api/v6/resume-pack': {
+        const projectDir = String(qs.get('projectDir') || body.projectDir || this.getDefaultWorkflowProjectDir());
+        const format = String(qs.get('format') || body.format || 'json').toLowerCase();
+        const limit = Number(qs.get('limit') ?? body.limit ?? 12);
+        const brain = getGlobalBrain();
+        await brain.init();
+        const projectId = GlobalBrain.projectIdFor(projectDir);
+        let entries = brain.recall({ projectId, minImportance: 0, limit: 500 });
+        let projectScoped = true;
+        if (!entries.length) {
+          projectScoped = false;
+          entries = brain.recall({ minImportance: 0, limit: 500 });
+        }
+        const pack = generateContextResumePack({
+          projectDir,
+          projectName: projectDir.split(/[\\/]/).filter(Boolean).pop() ?? projectDir,
+          projectId,
+          entries,
+          maxMemories: Number.isFinite(limit) ? Math.max(1, Math.min(30, limit)) : 12,
+        });
+        if (format === 'markdown' || format === 'md') return send(pack.markdown, 200, 'text/markdown; charset=utf-8');
+        return send({ ...pack, projectScoped });
+      }
+      case '/api/v6/live-brain': {
+        const { getLiveBrain } = await import('../brain/live-brain.js');
+        const projectDir = String(qs.get('projectDir') || body.projectDir || this.getDefaultWorkflowProjectDir());
+        const format = String(qs.get('format') || body.format || 'json').toLowerCase();
+        const queriesRaw = String(qs.get('queries') || body.queries || '').trim();
+        const queries = queriesRaw ? queriesRaw.split('|').map(q => q.trim()).filter(Boolean) : undefined;
+        const report = await getLiveBrain().report({
+          projectDir,
+          maxMemories: Number(qs.get('limit') ?? body.limit ?? 12),
+          queries,
+          globalFallback: body.globalFallback !== false && qs.get('globalFallback') !== 'false',
+        });
+        if (format === 'markdown' || format === 'md') return send(report.agentBriefing, 200, 'text/markdown; charset=utf-8');
+        return send(report);
+      }
+      case '/api/v6/seed-drafts': {
+        const { getMemorySeeder } = await import('../brain/memory-seeder.js');
+        const limit = Number(qs.get('limit') ?? body.limit ?? 30);
+        const seeder = getMemorySeeder();
+        await seeder.init();
+        return send(seeder.list(limit));
+      }
+      case '/api/v6/seed-draft': {
+        const { getMemorySeeder } = await import('../brain/memory-seeder.js');
+        const seeder = getMemorySeeder();
+        return send(await seeder.createDraft({
+          topic: body.topic,
+          objective: body.objective,
+          projectDir: body.projectDir || this.getDefaultWorkflowProjectDir(),
+          category: body.category,
+          tags: body.tags,
+          importance: body.importance,
+          researchAgent: body.researchAgent,
+          approverAgent: body.approverAgent,
+          approvalMode: body.approvalMode,
+          sources: body.sources,
+          content: body.content,
+        }));
+      }
+      case '/api/v6/seed-approve': {
+        const { getMemorySeeder } = await import('../brain/memory-seeder.js');
+        return send(await getMemorySeeder().approve(body.id, body.approvedBy || 'user', body.note));
+      }
+      case '/api/v6/seed-reject': {
+        const { getMemorySeeder } = await import('../brain/memory-seeder.js');
+        return send(await getMemorySeeder().reject(body.id, body.rejectedBy || 'user', body.reason || 'Rejected from dashboard'));
+      }
+      case '/api/v6/seed-commit': {
+        const { getMemorySeeder } = await import('../brain/memory-seeder.js');
+        return send(await getMemorySeeder().seed(body.id, body.seededBy || 'user'));
       }
       case '/api/v6/subagent-sliver': {
         const { getSubAgentBridge } = await import('../brain/subagent-bridge.js');
@@ -617,7 +767,8 @@ export class DashboardServer {
       }
       case '/api/v6/tokens-report': {
         const { getTokenEconomy } = await import('../brain/token-economy.js');
-        return send(await getTokenEconomy().report());
+        const report = await getTokenEconomy().report();
+        return send({ ...report, runtime: this.getRuntimeContext() });
       }
       case '/api/v6/forget-consolidate': {
         const { getForgettingCurve } = await import('../brain/forgetting-curve.js');
@@ -906,6 +1057,66 @@ export class DashboardServer {
         try { return send(JSON.parse(fs.readFileSync(cfgPath, 'utf-8'))); }
         catch { return send({}); }
       }
+      case '/api/v6/memory-intelligence': {
+        const brain = getGlobalBrain();
+        await brain.init();
+        const limit = Number(qs.get('limit') ?? body.limit ?? 500);
+        const events = brain.timeline({ limit: Number.isFinite(limit) ? Math.max(50, Math.min(2000, limit)) : 500 });
+        const now = Date.now();
+        const byCategory: Record<string, number> = {};
+        const byAgent: Record<string, number> = {};
+        const topTags: Record<string, number> = {};
+        let sourceBacked = 0;
+        let recent24h = 0;
+        let recent7d = 0;
+        let stale30d = 0;
+        let highImportance = 0;
+        for (const event of events) {
+          const createdAt = new Date(event.createdAt).getTime();
+          const ageMs = now - createdAt;
+          byCategory[event.category] = (byCategory[event.category] ?? 0) + 1;
+          byAgent[event.agentTool] = (byAgent[event.agentTool] ?? 0) + 1;
+          if (event.importance >= 0.75) highImportance++;
+          if (ageMs <= 24 * 60 * 60 * 1000) recent24h++;
+          if (ageMs <= 7 * 24 * 60 * 60 * 1000) recent7d++;
+          if (ageMs > 30 * 24 * 60 * 60 * 1000) stale30d++;
+          const sources = Array.isArray(event.metadata?.sources) ? event.metadata.sources : [];
+          if (sources.length > 0) sourceBacked++;
+          const tags = Array.isArray(event.metadata?.tags) ? event.metadata.tags : [];
+          for (const tag of tags) {
+            const key = String(tag).trim();
+            if (key) topTags[key] = (topTags[key] ?? 0) + 1;
+          }
+        }
+        const sortRecord = (record: Record<string, number>) => Object.entries(record)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 12)
+          .map(([name, count]) => ({ name, count }));
+        let seedDrafts: any[] = [];
+        try {
+          const { getMemorySeeder } = await import('../brain/memory-seeder.js');
+          const seeder = getMemorySeeder();
+          await seeder.init();
+          seedDrafts = seeder.list(100);
+        } catch { seedDrafts = []; }
+        return send({
+          totalEntries: brain.getStats().totalEntries,
+          sampledEntries: events.length,
+          sourceBacked,
+          sourceCoverage: events.length ? sourceBacked / events.length : 0,
+          recent24h,
+          recent7d,
+          stale30d,
+          highImportance,
+          byCategory: sortRecord(byCategory),
+          byAgent: sortRecord(byAgent),
+          topTags: sortRecord(topTags),
+          openSeedDrafts: seedDrafts.filter(d => d.status === 'draft' || d.status === 'approved').length,
+          pendingApprovals: seedDrafts.filter(d => d.status === 'draft').length,
+          recent: events.slice(0, 12),
+          generatedAt: new Date(),
+        });
+      }
       case '/api/v6/memory-browser': {
         const brain = getGlobalBrain(); await brain.init();
         // If no filters given, return the most recent 60 memories so the UI
@@ -1013,6 +1224,20 @@ export class DashboardServer {
           source: event.agentTool,
           type: 'memory-write',
           detail: `[${event.category}] ${String(event.content).slice(0, 220)}`,
+        });
+      }
+    } catch { /* empty */ }
+
+    try {
+      const { getMemorySeeder } = await import('../brain/memory-seeder.js');
+      const seeder = getMemorySeeder();
+      await seeder.init();
+      for (const draft of seeder.list(30)) {
+        events.push({
+          timestamp: new Date(draft.updatedAt || draft.createdAt),
+          source: `seed:${draft.researchAgent}`,
+          type: draft.status === 'seeded' ? 'memory-seeded' : 'seed-draft',
+          detail: `[${draft.status}] ${draft.topic} | approval: ${draft.approvalMode}`,
         });
       }
     } catch { /* empty */ }
@@ -1145,6 +1370,56 @@ export class DashboardServer {
     }
   }
 
+  private getRuntimeContext(): {
+    currentAgentTool: string | null;
+    currentAgentDisplay: string;
+    provider: string;
+    model: string | null;
+    source: string;
+    note: string;
+  } {
+    const status = this.orchestrator.getStatus() as Record<string, unknown>;
+    const agents = ((status.agents as string[]) || []).map(a => a.toLowerCase());
+    let currentAgentTool: string | null = null;
+    let source = 'orchestrator';
+
+    if (process.env.CODEX_SHELL || process.env.CODEX_THREAD_ID || process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE) {
+      currentAgentTool = 'codex';
+      source = 'environment';
+    } else if (agents.some(a => a.includes('codex'))) {
+      currentAgentTool = 'codex';
+    } else if (agents.some(a => a.includes('claude'))) {
+      currentAgentTool = 'claude-code';
+    } else if (agents.some(a => a.includes('cursor'))) {
+      currentAgentTool = 'cursor';
+    }
+
+    const labels: Record<string, string> = {
+      codex: 'Codex',
+      'claude-code': 'Claude Code',
+      cursor: 'Cursor',
+      cline: 'Cline',
+      copilot: 'Copilot',
+      windsurf: 'Windsurf',
+      'kilo-code': 'Kilo Code',
+      'roo-code': 'Roo Code',
+      opencode: 'OpenCode',
+      aider: 'Aider',
+    };
+    const statusProvider = typeof status.provider === 'string' ? status.provider : '';
+    const provider = statusProvider || (process.env.OPENAI_BASE_URL ? 'openai-compatible' : 'ollama');
+    const model = typeof status.model === 'string' && status.model.trim() ? status.model : null;
+
+    return {
+      currentAgentTool,
+      currentAgentDisplay: currentAgentTool ? labels[currentAgentTool] ?? currentAgentTool : 'Unknown agent',
+      provider,
+      model,
+      source,
+      note: 'Current agent is runtime context. Token spend rows are historical records and may include other agents or models.',
+    };
+  }
+
   private getToolsData(): Array<{ id: string; name: string; connected: boolean; detected: boolean; version?: string }> {
     try {
       const status = this.orchestrator.getStatus() as Record<string, unknown>;
@@ -1194,6 +1469,82 @@ export class DashboardServer {
     } catch {
       return { allowed: true, findings: [], riskScore: 0, summary: 'Firewall unavailable' };
     }
+  }
+
+  private getDefaultWorkflowProjectDir(): string {
+    const status = this.orchestrator.getStatus() as Record<string, unknown>;
+    const configured = String(status.projectDir || '').trim();
+    const ww2br = 'D:\\New Game';
+    if (configured) return configured;
+    return ww2br;
+  }
+
+  private async pathExists(pathToCheck: string): Promise<boolean> {
+    try {
+      const fs = await import('node:fs');
+      return fs.existsSync(pathToCheck);
+    } catch {
+      return false;
+    }
+  }
+
+  private async getWorkflowAgentStatus(projectDir: string): Promise<Array<{ name: string; displayName: string; detected: boolean; hookInstalled: boolean; hookPath?: string }>> {
+    const knownAgents = [
+      { name: 'claude-code', displayName: 'Claude Code' },
+      { name: 'cursor', displayName: 'Cursor' },
+      { name: 'cline', displayName: 'Cline' },
+      { name: 'codex', displayName: 'Codex' },
+      { name: 'copilot', displayName: 'GitHub Copilot' },
+      { name: 'windsurf', displayName: 'Windsurf' },
+      { name: 'kilo-code', displayName: 'Kilo Code' },
+      { name: 'roo-code', displayName: 'Roo Code' },
+      { name: 'opencode', displayName: 'OpenCode' },
+      { name: 'aider', displayName: 'Aider' },
+    ];
+    let detected: any[] = [];
+    let hooks: any[] = [];
+    try {
+      const { detectRunningAgents } = await import('../adapters/index.js');
+      detected = await detectRunningAgents(projectDir);
+    } catch {
+      detected = [];
+    }
+    try {
+      const { getHookInstaller } = await import('../brain/session-hooks.js');
+      hooks = await getHookInstaller().audit(projectDir);
+    } catch {
+      hooks = [];
+    }
+    return knownAgents.map(agent => {
+      const det = detected.find((d: any) => d.name === agent.name);
+      const hook = hooks.find((h: any) => h.agent === agent.name);
+      return {
+        ...agent,
+        detected: !!det,
+        hookInstalled: !!hook,
+        hookPath: hook?.installPath,
+      };
+    });
+  }
+
+  private getWorkflowWarnings(
+    projectDir: string,
+    agents: Array<{ detected: boolean; hookInstalled: boolean }>,
+    timeline: unknown[],
+    projectScoped: boolean
+  ): string[] {
+    const warnings: string[] = [];
+    if (!projectDir) warnings.push('No active project path is configured for the workflow view.');
+    if (!agents.some(a => a.detected || a.hookInstalled)) {
+      warnings.push('No agent integrations are detected or hooked for this project path.');
+    } else if (!agents.some(a => a.hookInstalled)) {
+      warnings.push('Agent tools may be present, but Shadow Brain hooks are not installed for this project path.');
+    }
+    if (!projectScoped && timeline.length > 0) {
+      warnings.push('No project-scoped memories found; showing the latest global brain memories instead.');
+    }
+    if (!timeline.length) warnings.push('No memories are available yet. Run agents with Shadow Brain attached to build the timeline.');
+    return warnings;
   }
 
   private setupWebSocket(): void {

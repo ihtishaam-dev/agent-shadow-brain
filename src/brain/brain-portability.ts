@@ -67,7 +67,7 @@ export class BrainPortability {
     const filePath = path.join(this.exportDir, fileName);
 
     const data: BrainExportData = {
-      version: '5.2.0',
+      version: '6.0.3',
       exportedAt: new Date(),
       projectName,
       projectDir: this.projectDir,
@@ -135,8 +135,8 @@ export class BrainPortability {
     const data: BrainExportData = JSON.parse(raw);
 
     // Version compatibility check
-    if (data.version && !data.version.startsWith('5.')) {
-      throw new Error(`Incompatible export version: ${data.version}. Expected 5.x`);
+    if (data.version && !/^(5|6)\./.test(data.version)) {
+      throw new Error(`Incompatible export version: ${data.version}. Expected 5.x or 6.x`);
     }
 
     const skipSet = new Set(options?.skipModules || []);

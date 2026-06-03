@@ -13,7 +13,7 @@ import { BaseAdapter } from './adapters/base-adapter.js';
 import { BrainConfig, BrainInsight, AgentTool, BrainPersonality, LLMProvider } from './types.js';
 import { checkForUpdate, formatUpdateNotice } from './brain/auto-update.js';
 
-const VERSION = '6.0.2';
+const VERSION = '6.0.3';
 
 const config: any = new Conf({
   projectName: 'shadow-brain',
@@ -31,13 +31,16 @@ const config: any = new Conf({
 
 function mergeConfig(cliOpts: any): BrainConfig {
   const saved = config.store;
+  const watchMode = cliOpts.watchMode === false || cliOpts.watch === false
+    ? false
+    : saved.watchMode !== false;
   return {
     provider: (cliOpts.provider || saved.provider || 'ollama') as LLMProvider,
     apiKey: cliOpts.apiKey || saved.apiKey,
     model: cliOpts.model || saved.model,
     agents: (cliOpts.agents?.split(',') || saved.agents || ['claude-code']) as AgentTool[],
     projectDir: cliOpts.projectDir || cliOpts.args?.[0] || saved.projectDir || process.cwd(),
-    watchMode: cliOpts.watch !== false && (saved.watchMode !== false),
+    watchMode,
     autoInject: cliOpts.inject !== false && (saved.autoInject !== false),
     reviewDepth: (cliOpts.depth || saved.reviewDepth || 'standard') as BrainConfig['reviewDepth'],
     brainPersonality: (cliOpts.personality || saved.brainPersonality || 'balanced') as BrainPersonality,
@@ -680,6 +683,8 @@ const dashCmd = new Command('dash')
   .option('--depth <depth>', 'Review depth (quick|standard|deep)')
   .option('--agents <agents>', 'Comma-separated list of agents to watch')
   .option('--port <port>', 'Dashboard port', '7341')
+  .option('--host <host>', 'Dashboard bind host', '127.0.0.1')
+  .option('--no-analysis', 'Start only the dashboard UI/API without background project analysis')
   .option('--no-open', 'Do not open browser automatically')
   .action(async (projectDir: string, opts: any) => {
     const brainConfig = mergeConfig({ ...opts, projectDir });
@@ -728,7 +733,17 @@ const dashCmd = new Command('dash')
         } catch { /* ignore */ }
       }
 
-      await orchestrator.start();
+      if (opts.analysis !== false) {
+        setTimeout(() => {
+          orchestrator.start().catch((err: any) => {
+            console.error(chalk.red('  Background analysis error:'), err?.message || String(err));
+          });
+        }, 250);
+      } else {
+        console.log(chalk.dim('  Background analysis disabled; dashboard UI/API only.\n'));
+      }
+
+      await new Promise<void>(() => {});
     } catch (err: any) {
       console.error(chalk.red('  Error:'), err.message);
       process.exit(1);
@@ -2621,7 +2636,7 @@ const v5Cmd = new Command('v5')
 const program = new Command();
 program
   .name('shadow-brain')
-  .description('Shadow Brain v5.2.0 — cross-agent memory and safety layer for Codex, Claude Code, Cursor, Copilot, Cline, Windsurf, and MCP tools')
+  .description('Shadow Brain v6.0.3 - local cross-agent memory, live brain health, resume context, and safety controls')
   .version(VERSION);
 
 program.addCommand(startCmd);
@@ -3227,17 +3242,21 @@ const globalBrainCmd = new Command('global')
     .action(async () => {
       const { getGlobalBrain } = await import('./brain/global-brain.js');
       const brain = getGlobalBrain();
-      await brain.init();
-      const s = brain.getStats();
-      console.log(chalk.magenta.bold(`\n  SHADOW BRAIN v${VERSION} — Global Brain`));
-      console.log(`    Projects: ${chalk.cyan(s.totalProjects)}`);
-      console.log(`    Agents:   ${chalk.cyan(s.totalAgents)}`);
-      console.log(`    Entries:  ${chalk.cyan(s.totalEntries)}`);
-      console.log(`    Size:     ${chalk.cyan(s.totalSizeMB.toFixed(2) + ' MB')}`);
-      console.log(`    Hit rate: ${chalk.cyan((s.hitRate * 100).toFixed(1) + '%')} (${s.hits}/${s.hits + s.misses})`);
-      console.log(`    Pending:  ${chalk.cyan(s.pendingWrites)}`);
-      console.log(`    Uptime:   ${chalk.cyan(Math.round(s.uptime / 1000) + 's')}`);
-      console.log(`    Last sync: ${chalk.dim(s.lastSync.toISOString())}`);
+      try {
+        await brain.init();
+        const s = brain.getStats();
+        console.log(chalk.magenta.bold(`\n  SHADOW BRAIN v${VERSION} — Global Brain`));
+        console.log(`    Projects: ${chalk.cyan(s.totalProjects)}`);
+        console.log(`    Agents:   ${chalk.cyan(s.totalAgents)}`);
+        console.log(`    Entries:  ${chalk.cyan(s.totalEntries)}`);
+        console.log(`    Size:     ${chalk.cyan(s.totalSizeMB.toFixed(2) + ' MB')}`);
+        console.log(`    Hit rate: ${chalk.cyan((s.hitRate * 100).toFixed(1) + '%')} (${s.hits}/${s.hits + s.misses})`);
+        console.log(`    Pending:  ${chalk.cyan(s.pendingWrites)}`);
+        console.log(`    Uptime:   ${chalk.cyan(Math.round(s.uptime / 1000) + 's')}`);
+        console.log(`    Last sync: ${chalk.dim(s.lastSync.toISOString())}`);
+      } finally {
+        await brain.shutdown();
+      }
     }))
   .addCommand(new Command('recall')
     .description('Recall entries from the global brain — works across projects + agents')
@@ -3249,20 +3268,24 @@ const globalBrainCmd = new Command('global')
     .action(async (opts) => {
       const { getGlobalBrain } = await import('./brain/global-brain.js');
       const brain = getGlobalBrain();
-      await brain.init();
-      const results = brain.recall({
-        keywords: opts.query ? opts.query.split(/\s+/) : undefined,
-        agentTool: opts.agent as AgentTool | undefined,
-        category: opts.category,
-        limit: parseInt(opts.limit, 10),
-      });
-      if (opts.json) {
-        console.log(JSON.stringify(results, null, 2));
-        return;
-      }
-      console.log(chalk.magenta.bold(`\n  SHADOW BRAIN v${VERSION} — Global Recall (${results.length})`));
-      for (const r of results) {
-        console.log(`    ${chalk.cyan('[' + r.agentTool + ']')} ${chalk.dim(r.category)} ${chalk.white(r.content.slice(0, 100))}`);
+      try {
+        await brain.init();
+        const results = brain.recall({
+          keywords: opts.query ? opts.query.split(/\s+/) : undefined,
+          agentTool: opts.agent as AgentTool | undefined,
+          category: opts.category,
+          limit: parseInt(opts.limit, 10),
+        });
+        if (opts.json) {
+          console.log(JSON.stringify(results, null, 2));
+          return;
+        }
+        console.log(chalk.magenta.bold(`\n  SHADOW BRAIN v${VERSION} — Global Recall (${results.length})`));
+        for (const r of results) {
+          console.log(`    ${chalk.cyan('[' + r.agentTool + ']')} ${chalk.dim(r.category)} ${chalk.white(r.content.slice(0, 100))}`);
+        }
+      } finally {
+        await brain.shutdown();
       }
     }))
   .addCommand(new Command('cache')
@@ -3280,9 +3303,13 @@ const globalBrainCmd = new Command('global')
     .action(async () => {
       const { getGlobalBrain } = await import('./brain/global-brain.js');
       const brain = getGlobalBrain();
-      await brain.init();
-      await brain.sync();
-      console.log(chalk.green('  ✓ Synced to disk.'));
+      try {
+        await brain.init();
+        await brain.sync();
+        console.log(chalk.green('  ✓ Synced to disk.'));
+      } finally {
+        await brain.shutdown();
+      }
     }));
 
 const detachAllCmd = new Command('detach-all')
@@ -3392,6 +3419,180 @@ const handoffCmd = new Command('handoff')
       await brain.shutdown();
     }
   });
+
+const resumeSeedCmd = new Command('resume-seed')
+  .description('Generate a source-backed context continuity seed for fresh or compacted agent sessions')
+  .argument('[project-dir]', 'Project directory', process.cwd())
+  .option('--max-memories <n>', 'Maximum recalled memories to include', '12')
+  .option('-o, --output <file>', 'Write markdown seed to this file')
+  .option('--json', 'Output JSON instead of markdown')
+  .action(async (projectDir: string, opts: any) => {
+    const { buildContextSeedPack } = await import('./brain/context-continuity.js');
+    const { getGlobalBrain } = await import('./brain/global-brain.js');
+    const resolvedProjectDir = path.resolve(projectDir);
+    try {
+      const pack = await buildContextSeedPack({
+        projectDir: resolvedProjectDir,
+        maxMemories: parseInt(opts.maxMemories || '12', 10),
+      });
+      if (opts.output) {
+        const outPath = path.resolve(resolvedProjectDir, opts.output);
+        fs.mkdirSync(path.dirname(outPath), { recursive: true });
+        fs.writeFileSync(outPath, pack.markdown, 'utf-8');
+        console.log(chalk.green(`  ✓ Context continuity seed written: ${outPath}`));
+        return;
+      }
+      if (opts.json) console.log(JSON.stringify(pack, null, 2));
+      else console.log(pack.markdown);
+    } finally {
+      await getGlobalBrain().shutdown().catch(() => {});
+    }
+  });
+
+function splitQueries(value?: string): string[] | undefined {
+  if (!value) return undefined;
+  return value
+    .split('|')
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+const liveBrainCmd = new Command('live-brain')
+  .alias('live')
+  .description('v6.0.3 Live Brain - memory health, agent briefing, recall eval, and training export');
+
+liveBrainCmd.addCommand(new Command('status')
+  .description('Show source-backed live brain health for a project')
+  .argument('[project-dir]', 'Project directory', process.cwd())
+  .option('--max-memories <n>', 'Maximum memories to include', '12')
+  .option('--queries <q1|q2>', 'Pipe-separated recall eval queries')
+  .option('--no-global-fallback', 'Do not fall back to latest global memories when project memory is empty')
+  .option('--json', 'Output JSON')
+  .action(async (projectDir: string, opts: any) => {
+    const { getLiveBrain } = await import('./brain/live-brain.js');
+    const report = await getLiveBrain().report({
+      projectDir,
+      maxMemories: parseInt(opts.maxMemories || '12', 10),
+      queries: splitQueries(opts.queries),
+      globalFallback: opts.globalFallback,
+    });
+    if (opts.json) {
+      console.log(JSON.stringify(report, null, 2));
+      return;
+    }
+    console.log(chalk.magenta.bold(`\n  SHADOW BRAIN v${VERSION} - Live Brain`));
+    console.log(`    Project: ${chalk.cyan(report.projectName)} ${chalk.dim(report.projectDir)}`);
+    console.log(`    Scope:   ${report.projectScoped ? chalk.green('project') : chalk.yellow('global fallback')}`);
+    console.log(`    Memory:  ${chalk.cyan(report.memoryQuality.totalEntries)} entries, ${chalk.cyan(report.memoryQuality.avgScore + '/100')} avg quality`);
+    console.log(`    Sources: ${chalk.cyan(Math.round(report.memoryQuality.sourceCoverage * 100) + '%')} coverage`);
+    console.log(`    Recall:  ${chalk.cyan(report.recallEval.avgHitCount)} avg hits/query, ${chalk.cyan(Math.round(report.recallEval.sourceBackedHitRate * 100) + '%')} source-backed hits`);
+    if (report.learningActions.length) {
+      console.log(chalk.yellow('\n  Recommended actions'));
+      for (const action of report.learningActions) {
+        console.log(`    [${action.priority}] ${action.title}`);
+        console.log(chalk.dim(`      ${action.reason}`));
+        if (action.command) console.log(chalk.dim(`      ${action.command}`));
+      }
+    } else {
+      console.log(chalk.green('\n  No immediate hygiene actions.'));
+    }
+  }));
+
+liveBrainCmd.addCommand(new Command('brief')
+  .description('Print or write the live agent briefing for fresh sessions and handoffs')
+  .argument('[project-dir]', 'Project directory', process.cwd())
+  .option('-o, --output <file>', 'Write briefing markdown to this file')
+  .option('--max-memories <n>', 'Maximum memories to include', '12')
+  .option('--no-global-fallback', 'Do not fall back to latest global memories when project memory is empty')
+  .action(async (projectDir: string, opts: any) => {
+    const { getLiveBrain } = await import('./brain/live-brain.js');
+    const report = await getLiveBrain().report({
+      projectDir,
+      maxMemories: parseInt(opts.maxMemories || '12', 10),
+      globalFallback: opts.globalFallback,
+    });
+    if (opts.output) {
+      const outPath = path.resolve(projectDir, opts.output);
+      fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      fs.writeFileSync(outPath, report.agentBriefing, 'utf-8');
+      console.log(chalk.green(`  Live agent briefing written: ${outPath}`));
+      return;
+    }
+    console.log(report.agentBriefing);
+  }));
+
+liveBrainCmd.addCommand(new Command('eval')
+  .description('Run recall checks that show whether agents can find the right long-memory context')
+  .argument('[project-dir]', 'Project directory', process.cwd())
+  .option('--queries <q1|q2>', 'Pipe-separated recall eval queries')
+  .option('--json', 'Output JSON')
+  .action(async (projectDir: string, opts: any) => {
+    const { getLiveBrain } = await import('./brain/live-brain.js');
+    const report = await getLiveBrain().report({
+      projectDir,
+      queries: splitQueries(opts.queries),
+    });
+    if (opts.json) {
+      console.log(JSON.stringify(report.recallEval, null, 2));
+      return;
+    }
+    console.log(chalk.magenta.bold(`\n  SHADOW BRAIN v${VERSION} - Recall Eval`));
+    for (const item of report.recallEval.cases) {
+      const color = item.hitCount ? chalk.green : chalk.red;
+      console.log(color(`    ${item.query}: ${item.hitCount} hits (${item.sourceBackedHits} source-backed)`));
+      if (item.topCategories.length) console.log(chalk.dim(`      ${item.topCategories.join(', ')}`));
+      for (const warning of item.warnings) console.log(chalk.yellow(`      ${warning}`));
+    }
+  }));
+
+liveBrainCmd.addCommand(new Command('hygiene')
+  .description('List concrete memory cleanup and learning actions')
+  .argument('[project-dir]', 'Project directory', process.cwd())
+  .option('--json', 'Output JSON')
+  .action(async (projectDir: string, opts: any) => {
+    const { getLiveBrain } = await import('./brain/live-brain.js');
+    const report = await getLiveBrain().report({ projectDir });
+    if (opts.json) {
+      console.log(JSON.stringify({
+        actions: report.learningActions,
+        quality: report.memoryQuality,
+        lowQualityMemories: report.lowQualityMemories,
+        staleMemories: report.staleMemories,
+      }, null, 2));
+      return;
+    }
+    console.log(chalk.magenta.bold(`\n  SHADOW BRAIN v${VERSION} - Memory Hygiene`));
+    for (const action of report.learningActions) {
+      console.log(`    [${action.priority}] ${chalk.cyan(action.title)}`);
+      console.log(chalk.dim(`      ${action.reason}`));
+      if (action.command) console.log(chalk.dim(`      ${action.command}`));
+    }
+    if (!report.learningActions.length) console.log(chalk.green('    No immediate cleanup actions.'));
+  }));
+
+liveBrainCmd.addCommand(new Command('train-pack')
+  .description('Export source-backed memories as JSONL rows for evals, distillation, or local fine-tuning pipelines')
+  .argument('[project-dir]', 'Project directory', process.cwd())
+  .option('-o, --out <file>', 'Output JSONL file')
+  .option('--max-rows <n>', 'Maximum rows', '200')
+  .option('--include-low-quality', 'Include low-quality or source-light memories')
+  .action(async (projectDir: string, opts: any) => {
+    const { getLiveBrain } = await import('./brain/live-brain.js');
+    const jsonl = await getLiveBrain().trainingJsonl({
+      projectDir,
+      maxRows: parseInt(opts.maxRows || '200', 10),
+      includeLowQuality: !!opts.includeLowQuality,
+    });
+    if (opts.out) {
+      const outPath = path.resolve(projectDir, opts.out);
+      fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      fs.writeFileSync(outPath, jsonl ? jsonl + '\n' : '', 'utf-8');
+      console.log(chalk.green(`  Training pack written: ${outPath}`));
+      return;
+    }
+    process.stdout.write(jsonl);
+    if (jsonl) process.stdout.write('\n');
+  }));
 
 function readStdin(): Promise<string> {
   return new Promise((resolve) => {
@@ -3503,6 +3704,8 @@ program.addCommand(detachAllCmd);
 program.addCommand(auditHooksCmd);
 program.addCommand(timelineCmd);
 program.addCommand(handoffCmd);
+program.addCommand(resumeSeedCmd);
+program.addCommand(liveBrainCmd);
 program.addCommand(firewallCmd);
 program.addCommand(proofCmd);
 

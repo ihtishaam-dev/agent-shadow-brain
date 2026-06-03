@@ -402,6 +402,74 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
   .stat-card .trend.up { color: var(--success); }
   .stat-card .trend.down { color: var(--danger); }
 
+  .workflow-strip {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 16px;
+  }
+  .workflow-path {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-2);
+    background: var(--bg-elev-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    width: 100%;
+  }
+  .warning-stack { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .warning-banner {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    border: 1px solid rgba(217, 119, 6, 0.38);
+    background: rgba(217, 119, 6, 0.10);
+    color: var(--warning);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .brain-feed { display: flex; flex-direction: column; gap: 10px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .memory-item {
+    border: 1px solid var(--border);
+    background: var(--bg-elev-1);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .memory-item .meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 11px;
+    color: var(--text-3);
+  }
+  .memory-item .content {
+    color: var(--text-2);
+    font-size: 12px;
+    line-height: 1.45;
+    word-break: break-word;
+  }
+  .ops-agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+  }
+  .ops-agent {
+    border: 1px solid var(--border);
+    background: var(--bg-elev-1);
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+  .ops-agent .name { font-weight: 700; margin-bottom: 5px; }
+  .ops-agent .status { display: flex; gap: 6px; flex-wrap: wrap; }
+  .empty-tight { color: var(--text-3); padding: 18px 4px; font-size: 12px; text-align: center; }
+
   /* ──────────────────────────────────────────────────────────────────── */
   /*  Rows, pills, badges                                                */
   /* ──────────────────────────────────────────────────────────────────── */
@@ -829,6 +897,10 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         Dashboard
       </button>
+      <button class="nav-item" data-tab="ww2br" data-title="WW2BR Brain">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"/><path d="M4 6h9l1 2h6v8h-9l-1-2H4"/></svg>
+        WW2BR Brain<span class="badge-count" id="badge-ww2br">0</span>
+      </button>
       <button class="nav-item" data-tab="graph" data-title="Live Graph">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg>
         Live Graph
@@ -841,6 +913,14 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
       <button class="nav-item" data-tab="memory" data-title="Memory Browser">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
         Memory Browser
+      </button>
+      <button class="nav-item" data-tab="seeder" data-title="Memory Seeder">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M5 9c0-3 2-5 7-7 5 2 7 4 7 7 0 5-4 8-7 8s-7-3-7-8z"/><path d="M8 12h8"/></svg>
+        Memory Seeder<span class="badge-count" id="badge-seeder">0</span>
+      </button>
+      <button class="nav-item" data-tab="livebrain" data-title="Live Brain">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><circle cx="12" cy="12" r="5"/></svg>
+        Live Brain
       </button>
       <button class="nav-item" data-tab="activity" data-title="Activity Log">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
@@ -929,7 +1009,7 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
 
       <div class="grid cols-3 mt-lg">
         <div class="card span-2">
-          <div class="card-header"><div class="card-title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>Token Spend (last 7 days)</div></div>
+          <div class="card-header"><div class="card-title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>Historical Recorded Spend by Agent (last 7 days)</div></div>
           <div class="chart-wrap"><canvas id="chart-tokens"></canvas></div>
         </div>
         <div class="card">
@@ -951,6 +1031,104 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
     </section>
 
     <!-- ════ LIVE GRAPH ══════════════════════════════════════════════ -->
+    <!-- WW2BR BRAIN -->
+    <section class="section" id="tab-ww2br">
+      <div class="accent-bar"></div>
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">WW2BR Brain View</h1>
+          <div class="section-subtitle">Live project memory, recall, and integration status for the current game-development workflow</div>
+        </div>
+        <div class="section-actions">
+          <button class="btn primary" onclick="refreshWW2BR()">Refresh</button>
+        </div>
+      </div>
+
+      <div class="workflow-strip">
+        <div>
+          <div class="field" style="margin:0">
+            <label>Active project path</label>
+            <input class="workflow-path" id="ww2-project-path" value="D:\\New Game"/>
+          </div>
+        </div>
+        <button class="btn" onclick="refreshWW2BR()">Load</button>
+      </div>
+
+      <div id="ww2-warnings" class="warning-stack"></div>
+
+      <div class="grid cols-4">
+        <div class="card stat-card">
+          <div class="label">Global Memories</div>
+          <div class="value accent" id="ww2-stat-memories">0</div>
+          <div class="trend" id="ww2-stat-scope">project scoped</div>
+        </div>
+        <div class="card stat-card">
+          <div class="label">Brain Projects</div>
+          <div class="value" id="ww2-stat-projects">0</div>
+          <div class="trend">known roots</div>
+        </div>
+        <div class="card stat-card">
+          <div class="label">Agent Hooks</div>
+          <div class="value" id="ww2-stat-hooks">0</div>
+          <div class="trend">wired for this path</div>
+        </div>
+        <div class="card stat-card">
+          <div class="label">Hit Rate</div>
+          <div class="value" id="ww2-stat-hit">0%</div>
+          <div class="trend" id="ww2-stat-sync">last sync unknown</div>
+        </div>
+      </div>
+
+      <div class="grid cols-3 mt-lg">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Memory Quality</div></div>
+          <div id="ww2-quality" class="stack"></div>
+        </div>
+        <div class="card span-2">
+          <div class="card-header">
+            <div class="card-title">Context Continuity Pack</div>
+            <button class="btn sm" onclick="openWW2ResumePack()">Markdown</button>
+          </div>
+          <div id="ww2-resume-pack"></div>
+        </div>
+      </div>
+
+      <div class="grid cols-3 mt-lg">
+        <div class="card span-2">
+          <div class="card-header">
+            <div class="card-title">Recent Brain Timeline</div>
+            <button class="btn sm" onclick="refreshWW2BR()">Refresh</button>
+          </div>
+          <div id="ww2-timeline" class="brain-feed"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Agent Integrations</div></div>
+          <div id="ww2-agents" class="ops-agent-grid"></div>
+        </div>
+      </div>
+
+      <div class="grid cols-3 mt-lg">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Memory Categories</div></div>
+          <div id="ww2-categories"></div>
+        </div>
+        <div class="card span-2">
+          <div class="card-header"><div class="card-title">Recall Query</div></div>
+          <div class="grid cols-3">
+            <div class="field span-2"><label>Query</label><input id="ww2-query" placeholder="Gate 2, operator proof, lobby blocker"/></div>
+            <div class="field"><label>Category</label><input id="ww2-category" placeholder="optional"/></div>
+          </div>
+          <div class="flex gap">
+            <button class="btn primary" onclick="runWW2Recall()">Recall</button>
+            <button class="btn" onclick="setWW2Query('Gate 2 visual proof')">Gate 2</button>
+            <button class="btn" onclick="setWW2Query('operator hands rifle hold')">Operator</button>
+            <button class="btn" onclick="setWW2Query('lobby verification blockers')">Lobby</button>
+          </div>
+          <div id="ww2-recall-results" class="brain-feed mt"></div>
+        </div>
+      </div>
+    </section>
+
     <section class="section" id="tab-graph">
       <div class="accent-bar"></div>
       <div class="section-header">
@@ -1028,7 +1206,7 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
       <div class="section-header">
         <div>
           <h1 class="section-title">Memory Browser</h1>
-          <div class="section-subtitle">Full-text search across every memory in the global brain</div>
+          <div class="section-subtitle">Full-text search plus live memory quality, provenance, freshness, and agent coverage</div>
         </div>
       </div>
       <div class="card">
@@ -1044,6 +1222,115 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
         <table class="table"><thead><tr><th>ID</th><th>Agent</th><th>Category</th><th>Content</th><th>Importance</th><th>Created</th></tr></thead>
           <tbody id="mem-results"></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- ════ LIVE BRAIN ═══════════════════════════════════════════════ -->
+    <!-- MEMORY SEEDER -->
+    <section class="section" id="tab-seeder">
+      <div class="accent-bar"></div>
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">Memory Seeder</h1>
+          <div class="section-subtitle">Research drafts, approval gates, and source-backed global brain writes</div>
+        </div>
+        <div class="section-actions">
+          <button class="btn" onclick="refreshSeedDrafts()">Refresh</button>
+        </div>
+      </div>
+
+      <div class="grid cols-3">
+        <div class="card span-2">
+          <div class="card-header"><div class="card-title">Seed Research Draft</div></div>
+          <div class="grid cols-2">
+            <div class="field"><label>Project path</label><input id="seed-project-path" placeholder="C:\\path\\to\\project"/></div>
+            <div class="field"><label>Topic</label><input id="seed-topic" placeholder="memory routing, architecture, release, debugging"/></div>
+          </div>
+          <div class="field"><label>Objective</label><input id="seed-objective" placeholder="what the next agent must learn and reuse"/></div>
+          <div class="grid cols-3">
+            <div class="field"><label>Research agent</label><select id="seed-research-agent"><option>codex</option><option>claude-code</option><option>cursor</option><option>cline</option><option>copilot</option><option>windsurf</option><option>kilo-code</option><option>roo-code</option><option>aider</option><option>opencode</option></select></div>
+            <div class="field"><label>Approver</label><select id="seed-approver-agent"><option>user</option><option>codex</option><option>claude-code</option><option>cursor</option><option>cline</option><option>copilot</option><option>windsurf</option><option>kilo-code</option><option>roo-code</option><option>aider</option><option>opencode</option></select></div>
+            <div class="field"><label>Approval mode</label><select id="seed-approval-mode"><option>user</option><option>agent</option><option>dual</option></select></div>
+          </div>
+          <div class="grid cols-3">
+            <div class="field"><label>Category</label><input id="seed-category" value="project.research"/></div>
+            <div class="field"><label>Tags</label><input id="seed-tags" placeholder="enterprise,memory,release"/></div>
+            <div class="field"><label>Importance</label><input id="seed-importance" type="number" min="0.05" max="1" step="0.05" value="0.78"/></div>
+          </div>
+          <div class="field"><label>Sources</label><textarea id="seed-sources" rows="2" placeholder="README.md, CHANGELOG.md, docs/launch/RELEASE_NOTES_v6.0.3.md"></textarea></div>
+          <div class="field"><label>Research notes</label><textarea id="seed-content" rows="4" placeholder="facts, constraints, tradeoffs, exact commands, source-backed decisions"></textarea></div>
+          <div class="flex gap">
+            <button class="btn primary" onclick="createSeedDraft()">Create Draft</button>
+            <button class="btn" onclick="copyLivePathToSeeder()">Use Live Brain Path</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Seeder Status</div></div>
+          <div id="seed-status" class="stack"></div>
+        </div>
+      </div>
+
+      <div class="card mt-lg">
+        <div class="card-header">
+          <div class="card-title">Approval Queue</div>
+          <button class="btn sm" onclick="refreshSeedDrafts()">Refresh</button>
+        </div>
+        <div id="seed-drafts" class="brain-feed"></div>
+      </div>
+    </section>
+
+    <section class="section" id="tab-livebrain">
+      <div class="accent-bar"></div>
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">Live Brain</h1>
+          <div class="section-subtitle">Memory health, source coverage, recall eval, and agent briefing for the current workspace</div>
+        </div>
+        <div class="section-actions">
+          <button class="btn" onclick="openSeederForLiveBrain()">Seed Memory</button>
+          <button class="btn primary" onclick="refreshLiveBrain()">Refresh</button>
+        </div>
+      </div>
+      <div class="grid cols-4">
+        <div class="card stat-card"><div class="label">Total Memories</div><div class="value" id="mem-total">0</div><div class="trend" id="mem-sampled">sampled</div></div>
+        <div class="card stat-card"><div class="label">Source Coverage</div><div class="value" id="mem-source">0%</div><div class="trend">evidence-backed records</div></div>
+        <div class="card stat-card"><div class="label">Fresh 7 Days</div><div class="value" id="mem-fresh">0</div><div class="trend">recent learning</div></div>
+        <div class="card stat-card"><div class="label">Seed Queue</div><div class="value" id="mem-seed-open">0</div><div class="trend" id="mem-seed-sub">approval queue</div></div>
+      </div>
+      <div class="grid cols-3 mt">
+        <div class="card"><div class="card-header"><div class="card-title">Top Categories</div></div><div id="mem-categories"></div></div>
+        <div class="card"><div class="card-header"><div class="card-title">Agent Coverage</div></div><div id="mem-agents"></div></div>
+        <div class="card"><div class="card-header"><div class="card-title">Top Tags</div></div><div id="mem-tags"></div></div>
+      </div>
+      <div class="card mt">
+        <div class="field-row">
+          <div class="field"><label>Project path</label><input id="live-project-path" placeholder="C:\\path\\to\\project"/></div>
+          <div class="field"><label>Eval queries</label><input id="live-queries" placeholder="current blocker|do not repeat|verified command"/></div>
+        </div>
+      </div>
+      <div class="grid cols-4 mt">
+        <div class="card stat-card"><div class="label">Memories</div><div class="value" id="live-memories">0</div><div class="trend" id="live-scope">scope</div></div>
+        <div class="card stat-card"><div class="label">Quality</div><div class="value" id="live-quality">0</div><div class="trend">average score</div></div>
+        <div class="card stat-card"><div class="label">Sources</div><div class="value" id="live-sources">0%</div><div class="trend">coverage</div></div>
+        <div class="card stat-card"><div class="label">Recall</div><div class="value" id="live-recall">0</div><div class="trend">avg hits/query</div></div>
+      </div>
+      <div class="grid cols-2 mt-lg">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Recommended Actions</div></div>
+          <div id="live-actions" class="stack"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Recall Eval</div></div>
+          <div id="live-eval" class="stack"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Top Memories</div></div>
+          <div id="live-top" class="stack"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Agent Briefing</div></div>
+          <pre class="mono" id="live-brief" style="max-height:360px;overflow:auto;background:var(--bg-elev-1);padding:12px;border-radius:6px;white-space:pre-wrap"></pre>
+        </div>
       </div>
     </section>
 
@@ -1229,14 +1516,20 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
       <div class="accent-bar"></div>
       <div class="section-header"><div><h1 class="section-title">Token Economy Engine</h1><div class="section-subtitle">Cross-agent spend tracking · savings suggestions · routing advice</div></div></div>
       <div class="grid cols-4">
-        <div class="card stat-card"><div class="label">Total Spend</div><div class="value" id="tok-total">$—</div><div class="trend">all time</div></div>
-        <div class="card stat-card"><div class="label">Monthly Projection</div><div class="value" id="tok-proj">$—</div><div class="trend">from last 7 days</div></div>
-        <div class="card stat-card"><div class="label">Savings Available</div><div class="value" style="color:var(--success)" id="tok-save">$—</div><div class="trend up">via smart routing</div></div>
+        <div class="card stat-card"><div class="label">Current Agent</div><div class="value" id="tok-agent">—</div><div class="trend" id="tok-runtime">runtime context</div></div>
+        <div class="card stat-card"><div class="label">Total Spend</div><div class="value" id="tok-total">$—</div><div class="trend">all historical records</div></div>
+        <div class="card stat-card"><div class="label">Last 7 Days</div><div class="value" id="tok-recent">$—</div><div class="trend">recent records only</div></div>
         <div class="card stat-card"><div class="label">Total Calls</div><div class="value" id="tok-calls">—</div><div class="trend" id="tok-calls-sub"></div></div>
       </div>
+      <div class="grid cols-2 mt">
+        <div class="card stat-card"><div class="label">Monthly Projection</div><div class="value" id="tok-proj">$—</div><div class="trend">from last 7 days</div></div>
+        <div class="card stat-card"><div class="label">Savings Available</div><div class="value" style="color:var(--success)" id="tok-save">$—</div><div class="trend up">via smart routing</div></div>
+      </div>
+      <div class="warning-banner mt" id="tok-runtime-note"><strong>Accuracy</strong><span>Token records are historical. Current agent and model spend are shown separately.</span></div>
       <div class="grid cols-2 mt-lg">
-        <div class="card"><div class="card-header"><div class="card-title">Spend by Model</div></div><div class="chart-wrap"><canvas id="chart-tokens-model"></canvas></div></div>
-        <div class="card"><div class="card-header"><div class="card-title">Savings Suggestions</div></div><div id="tok-suggestions"></div></div>
+        <div class="card"><div class="card-header"><div class="card-title">Recent Spend by Agent</div></div><div class="chart-wrap"><canvas id="chart-tokens-agent"></canvas></div><div id="tok-agent-table" class="mt"></div></div>
+        <div class="card"><div class="card-header"><div class="card-title">Historical Spend by Model</div></div><div class="chart-wrap"><canvas id="chart-tokens-model"></canvas></div><div id="tok-model-table" class="mt"></div></div>
+        <div class="card span-2"><div class="card-header"><div class="card-title">Savings Suggestions</div></div><div id="tok-suggestions"></div></div>
       </div>
     </section>
 
@@ -1530,7 +1823,7 @@ function switchTab(id, title) {
   onTabOpen(id);
 }
 function onTabOpen(tab) {
-  const fn = { overview: refreshOverview, graph: startGraph, agents: refreshAgents, memory: () => searchMemory(), chat: refreshChat, activity: refreshActivity,
+  const fn = { overview: refreshOverview, ww2br: refreshWW2BR, graph: startGraph, agents: refreshAgents, memory: () => { refreshMemoryIntelligence(); searchMemory(); }, seeder: refreshSeedDrafts, livebrain: refreshLiveBrain, chat: refreshChat, activity: refreshActivity,
     sabb: refreshSABB, causal: refreshCausal, collision: refreshCollision, dream: refreshDream, reputation: refreshReputation,
     tokens: refreshTokens, forget: refreshForget, formal: null, calibration: refreshCalibration, branch: refreshBranch,
     privacy: refreshPrivacy, garden: refreshGarden, team: refreshTeam, exchange: refreshExchange, features: refreshFeatures,
@@ -1566,6 +1859,18 @@ async function api(path, body) {
     const ct = res.headers.get('content-type') || '';
     return ct.includes('application/json') ? await res.json() : await res.text();
   } catch (err) { toast('Network error', err.message, 'error'); return null; }
+}
+function htmlEscape(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function fmtDate(value) {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? 'unknown' : d.toLocaleString();
 }
 
 // ──── Toasts ───────────────────────────────────────────────────────────
@@ -1662,6 +1967,7 @@ async function refreshOverview() {
 
   const health = [
     ['Local-first', hive.localFirst ? 'ON' : 'OFF', hive.localFirst ? 'good' : 'warn'],
+    ['Current agent', hive.runtime?.currentAgentDisplay || 'Unknown', hive.runtime?.currentAgentTool === 'codex' ? 'good' : ''],
     ['Air-gap', hive.modules.airGap?.enabled ? 'ENABLED' : 'disabled', hive.modules.airGap?.enabled ? 'good' : ''],
     ['Version', hive.version, ''],
     ['Monthly cost', '$' + (hive.modules.tokenEconomy?.monthlyProjectionUsd?.toFixed?.(2) ?? '0.00'), 'warn'],
@@ -1671,7 +1977,7 @@ async function refreshOverview() {
 
   // Tokens chart
   const tok = hive.modules.tokenEconomy;
-  if (tok && tok.byModel) drawTokensChart(tok.byModel);
+  if (tok) drawTokensChart(tok.recentByAgent || tok.byAgent || {});
 
   // Timeline
   const timeline = await api('/api/v6/activity-log?limit=15') ?? [];
@@ -1684,8 +1990,143 @@ function typeToPill(type) {
   if (type === 'subagent-spawn') return 'cyan';
   if (type === 'collision') return 'red';
   if (type === 'quarantine') return 'yellow';
+  if (type === 'seed-draft') return 'yellow';
+  if (type === 'memory-seeded') return 'green';
   if (['dream','revisit','counterfactual','consolidation','pattern-discovery','contradiction'].includes(type)) return 'purple';
   return '';
+}
+
+function getWW2ProjectPath() {
+  return document.getElementById('ww2-project-path')?.value?.trim() || 'D:\\\\New Game';
+}
+async function refreshWW2BR() {
+  const projectDir = getWW2ProjectPath();
+  const data = await api('/api/v6/ww2br-ops?projectDir=' + encodeURIComponent(projectDir));
+  if (!data) return;
+
+  const stats = data.stats || {};
+  const hooked = (data.agents || []).filter(a => a.hookInstalled).length;
+  document.getElementById('badge-ww2br').textContent = data.recent?.length ?? 0;
+  animateNum('ww2-stat-memories', stats.totalEntries ?? 0);
+  animateNum('ww2-stat-projects', stats.totalProjects ?? 0);
+  animateNum('ww2-stat-hooks', hooked);
+  document.getElementById('ww2-stat-hit').textContent = Math.round((stats.hitRate ?? 0) * 100) + '%';
+  document.getElementById('ww2-stat-scope').textContent = data.projectScoped ? 'project scoped' : 'global fallback';
+  document.getElementById('ww2-stat-sync').textContent = stats.lastSync ? 'sync ' + fmtDate(stats.lastSync) : 'last sync unknown';
+
+  const warnings = data.warnings || [];
+  document.getElementById('ww2-warnings').innerHTML = warnings.length
+    ? warnings.map(w => '<div class="warning-banner"><strong>Warning</strong><span>' + htmlEscape(w) + '</span></div>').join('')
+    : '';
+
+  document.getElementById('ww2-timeline').innerHTML = renderMemoryItems(data.recent || [], 'No memories found for this workflow yet.');
+  document.getElementById('ww2-agents').innerHTML = renderWW2Agents(data.agents || []);
+  document.getElementById('ww2-categories').innerHTML = renderWW2Categories(data.categories || {});
+  document.getElementById('ww2-quality').innerHTML = renderWW2Quality(data.quality);
+  document.getElementById('ww2-resume-pack').innerHTML = renderWW2ResumePack(data.resumePack);
+
+  const query = document.getElementById('ww2-query');
+  if (query && !query.value) query.value = 'Gate 2 visual proof';
+  if (!document.getElementById('ww2-recall-results').innerHTML.trim()) {
+    document.getElementById('ww2-recall-results').innerHTML = '<div class="empty-tight">Run a recall query to inspect relevant brain memory.</div>';
+  }
+}
+function renderMemoryItems(items, emptyMessage) {
+  if (!items || !items.length) return '<div class="empty-tight">' + htmlEscape(emptyMessage) + '</div>';
+  return items.map(item => {
+    const confidence = item.importance !== undefined ? Math.round((item.importance || 0) * 100) + '%' : '';
+    const sources = item.sources || (item.metadata && item.metadata.sources) || [];
+    const tags = item.tags || (item.metadata && item.metadata.tags) || [];
+    const quality = item.qualityScore !== undefined ? '<span class="pill">Q ' + htmlEscape(item.qualityScore) + '</span>' : '';
+    const sourceLine = sources.length
+      ? '<div class="content" style="font-size:10.5px;color:var(--text-3);margin-top:6px">Sources: ' + sources.slice(0, 3).map(s => '<code>' + htmlEscape(s) + '</code>').join(' · ') + '</div>'
+      : '<div class="content" style="font-size:10.5px;color:var(--warning);margin-top:6px">Sources: none recorded</div>';
+    const tagLine = tags.length ? '<span class="pill">' + tags.slice(0, 3).map(htmlEscape).join(', ') + '</span>' : '';
+    return '<div class="memory-item">' +
+      '<div class="meta">' +
+        '<span class="pill cyan">' + htmlEscape(item.agentTool || item.agent || 'brain') + '</span>' +
+        '<span class="pill">' + htmlEscape(item.category || 'memory') + '</span>' +
+        (confidence ? '<span class="pill green">' + confidence + '</span>' : '') +
+        quality +
+        tagLine +
+        '<span>' + fmtDate(item.createdAt || item.lastAccessed) + '</span>' +
+      '</div>' +
+      '<div class="content">' + htmlEscape(item.content || item.detail || '').slice(0, 420) + '</div>' +
+      sourceLine +
+    '</div>';
+  }).join('');
+}
+function renderWW2Quality(quality) {
+  if (!quality) return '<div class="empty-tight">No memory quality data.</div>';
+  const sourcePct = Math.round((quality.sourceCoverage || 0) * 100);
+  const scoreCls = quality.avgScore >= 75 ? 'good' : quality.avgScore >= 55 ? 'warn' : 'bad';
+  return [
+    '<div class="row"><span class="k">Average score</span><span class="v ' + scoreCls + '">' + htmlEscape(quality.avgScore ?? 0) + '/100</span></div>',
+    '<div class="row"><span class="k">Source coverage</span><span class="v ' + (sourcePct >= 70 ? 'good' : 'warn') + '">' + sourcePct + '%</span></div>',
+    '<div class="row"><span class="k">Stale memories</span><span class="v ' + (quality.stale ? 'warn' : 'good') + '">' + htmlEscape(quality.stale || 0) + '</span></div>',
+    '<div class="row"><span class="k">Duplicate clusters</span><span class="v ' + (quality.duplicates?.length ? 'warn' : 'good') + '">' + htmlEscape(quality.duplicates?.length || 0) + '</span></div>',
+  ].join('');
+}
+function renderWW2ResumePack(pack) {
+  if (!pack) return '<div class="empty-tight">No resume pack generated.</div>';
+  const warnings = pack.warnings && pack.warnings.length
+    ? '<div class="warning-stack" style="margin:10px 0 0">' + pack.warnings.slice(0, 3).map(w => '<div class="warning-banner"><strong>Review</strong><span>' + htmlEscape(w) + '</span></div>').join('') + '</div>'
+    : '';
+  const blockers = pack.blockers && pack.blockers.length
+    ? '<div class="brain-feed mt">' + renderMemoryItems(pack.blockers.slice(0, 3), 'No blockers in pack.') + '</div>'
+    : '<div class="empty-tight">No blockers in pack.</div>';
+  const stats = pack.stats || {};
+  return '<div class="grid cols-3">' +
+    '<div class="row"><span class="k">Docs</span><span class="v">' + htmlEscape(stats.docCount ?? 0) + '</span></div>' +
+    '<div class="row"><span class="k">Memories</span><span class="v">' + htmlEscape(stats.memoryCount ?? 0) + '</span></div>' +
+    '<div class="row"><span class="k">Quality</span><span class="v">' + htmlEscape(stats.avgQualityScore ?? 0) + '/100</span></div>' +
+    '</div>' +
+    '<div class="mt" style="font-size:12px;color:var(--text-2)">Generated ' + htmlEscape(fmtDate(pack.generatedAt)) + '. Uses visible docs and stored memories only.</div>' +
+    warnings +
+    '<div class="mt">' + blockers + '</div>';
+}
+function openWW2ResumePack() {
+  const url = '/api/v6/resume-pack?format=markdown&projectDir=' + encodeURIComponent(getWW2ProjectPath());
+  window.open(url, '_blank', 'noopener');
+}
+function renderWW2Agents(agents) {
+  if (!agents.length) return '<div class="empty-tight">No known agent integrations returned.</div>';
+  return agents.map(agent => {
+    const cls = agent.hookInstalled ? 'green' : agent.detected ? 'cyan' : '';
+    const hook = agent.hookInstalled ? 'hooked' : 'not wired';
+    const detected = agent.detected ? 'detected' : 'not found';
+    return '<div class="ops-agent">' +
+      '<div class="name">' + htmlEscape(agent.displayName || agent.name) + '</div>' +
+      '<div class="status">' +
+        '<span class="pill ' + cls + '">' + hook + '</span>' +
+        '<span class="pill">' + detected + '</span>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+function renderWW2Categories(categories) {
+  const rows = Object.entries(categories).sort((a, b) => b[1] - a[1]);
+  if (!rows.length) return '<div class="empty-tight">No categories yet.</div>';
+  return rows.map(([name, count]) => '<div class="row"><span class="k">' + htmlEscape(name) + '</span><span class="v">' + count + '</span></div>').join('');
+}
+function setWW2Query(query) {
+  document.getElementById('ww2-query').value = query;
+  runWW2Recall();
+}
+async function runWW2Recall() {
+  const resultsEl = document.getElementById('ww2-recall-results');
+  const query = document.getElementById('ww2-query').value.trim();
+  const category = document.getElementById('ww2-category').value.trim();
+  resultsEl.innerHTML = '<div class="empty-tight">Searching brain memory...</div>';
+  const data = await api('/api/v6/ww2br-recall', {
+    projectDir: getWW2ProjectPath(),
+    query,
+    category: category || undefined,
+    limit: 12,
+  });
+  if (!data) return;
+  const prefix = data.projectScoped ? '' : '<div class="warning-banner"><strong>Fallback</strong><span>No project-scoped matches; showing global brain recall results.</span></div>';
+  resultsEl.innerHTML = prefix + renderMemoryItems(data.results || [], 'No recall matches for that query.');
 }
 
 // ──── Charts ───────────────────────────────────────────────────────────
@@ -1693,23 +2134,41 @@ function chartTheme() {
   const dark = document.documentElement.dataset.theme !== 'light';
   return { grid: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', text: dark ? '#a4afc4' : '#3d4864' };
 }
-function drawTokensChart(byModel) {
-  const ctx = document.getElementById('chart-tokens');
+function spendLabels(buckets) {
+  return Object.keys(buckets || {}).sort((a, b) => (buckets[b]?.spendUsd || 0) - (buckets[a]?.spendUsd || 0));
+}
+function drawSpendBarChart(canvasId, chartKey, buckets) {
+  const ctx = document.getElementById(canvasId);
   if (!ctx) return;
-  const labels = Object.keys(byModel);
-  const data = labels.map(l => byModel[l].spendUsd);
+  const labels = spendLabels(buckets);
+  const data = labels.map(l => buckets[l].spendUsd || 0);
   const t = chartTheme();
-  if (charts.tokens) charts.tokens.destroy();
-  charts.tokens = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ label: 'Spend (USD)', data, backgroundColor: ['#18ffff','#a855f7','#ec4899','#10e68c','#ffb53f','#4fb6ff'], borderRadius: 6 }] }, options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{color:t.grid},ticks:{color:t.text}},y:{grid:{color:t.grid},ticks:{color:t.text,callback:v=>'$'+v.toFixed(2)}}} } });
+  if (charts[chartKey]) charts[chartKey].destroy();
+  charts[chartKey] = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ label: 'Spend (USD)', data, backgroundColor: ['#18ffff','#a855f7','#ec4899','#10e68c','#ffb53f','#4fb6ff'], borderRadius: 6 }] }, options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid:{color:t.grid},ticks:{color:t.text}},y:{grid:{color:t.grid},ticks:{color:t.text,callback:v=>'$'+Number(v).toFixed(2)}}} } });
+}
+function drawTokensChart(byAgent) {
+  drawSpendBarChart('chart-tokens', 'tokens', byAgent || {});
+}
+function drawTokensAgentChart(byAgent) {
+  drawSpendBarChart('chart-tokens-agent', 'tokensAgent', byAgent || {});
 }
 function drawTokensModelChart(byModel) {
   const ctx = document.getElementById('chart-tokens-model');
   if (!ctx) return;
-  const labels = Object.keys(byModel);
-  const data = labels.map(l => byModel[l].spendUsd);
+  const labels = spendLabels(byModel);
+  const data = labels.map(l => byModel[l].spendUsd || 0);
   const t = chartTheme();
   if (charts.tokensModel) charts.tokensModel.destroy();
   charts.tokensModel = new Chart(ctx, { type: 'doughnut', data: { labels, datasets: [{ data, backgroundColor: ['#18ffff','#a855f7','#ec4899','#10e68c','#ffb53f','#4fb6ff'], borderWidth:0 }] }, options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right',labels:{color:t.text,boxWidth:12}}} } });
+}
+function renderSpendRows(buckets, emptyMessage) {
+  const labels = spendLabels(buckets).slice(0, 8);
+  if (!labels.length) return '<div class="empty-tight">' + htmlEscape(emptyMessage) + '</div>';
+  return labels.map(label => {
+    const b = buckets[label] || {};
+    const last = b.lastSeen ? new Date(b.lastSeen).toLocaleString() : '—';
+    return \`<div class="row"><span class="k">\${htmlEscape(label)} <span class="tag-code">\${b.calls || 0} calls</span></span><span class="v">$\${Number(b.spendUsd || 0).toFixed(4)} <span class="mono" style="color:var(--text-3)">\${last}</span></span></div>\`;
+  }).join('');
 }
 function drawDreamChart(byType) {
   const ctx = document.getElementById('chart-dreams');
@@ -1869,13 +2328,21 @@ async function runAttention() {
 async function refreshTokens() {
   const res = await api('/api/v6/tokens-report');
   if (!res) return;
+  const runtime = res.runtime || {};
+  document.getElementById('tok-agent').textContent = runtime.currentAgentDisplay || 'Unknown';
+  document.getElementById('tok-runtime').textContent = (runtime.provider || 'provider') + (runtime.model ? ' / ' + runtime.model : '');
+  document.getElementById('tok-runtime-note').innerHTML = \`<strong>Accuracy</strong><span>\${htmlEscape(runtime.note || 'Token records are historical. Current agent and model spend are shown separately.')}</span>\`;
   document.getElementById('tok-total').textContent = '$' + (res.totalSpendUsd || 0).toFixed(4);
+  document.getElementById('tok-recent').textContent = '$' + (res.recentSpendUsd || 0).toFixed(4);
   document.getElementById('tok-proj').textContent = '$' + (res.monthlyProjectionUsd || 0).toFixed(2);
   document.getElementById('tok-save').textContent = '$' + (res.savingsOpportunitiesUsd || 0).toFixed(2);
   const calls = Object.values(res.byAgent || {}).reduce((a, b) => a + b.calls, 0);
   document.getElementById('tok-calls').textContent = calls;
   document.getElementById('tok-calls-sub').textContent = \`\${(res.totalInputTokens || 0).toLocaleString()} in · \${(res.totalOutputTokens || 0).toLocaleString()} out\`;
-  if (res.byModel) drawTokensModelChart(res.byModel);
+  drawTokensAgentChart(res.recentByAgent || res.byAgent || {});
+  drawTokensModelChart(res.byModel || {});
+  document.getElementById('tok-agent-table').innerHTML = renderSpendRows(res.recentByAgent || res.byAgent || {}, 'No recent agent spend records.');
+  document.getElementById('tok-model-table').innerHTML = renderSpendRows(res.byModel || {}, 'No model spend records.');
   document.getElementById('tok-suggestions').innerHTML = (res.suggestions || []).map(s => \`<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:8px"><span style="color:var(--success);flex-shrink:0">💡</span><span style="font-size:12px">\${s}</span></div>\`).join('') || '<div class="empty">Running lean — no suggestions</div>';
 }
 
@@ -2247,6 +2714,25 @@ async function attachAll() { const r = await api('/api/v6/agents-attach-all', {}
 async function detachAll() { if (!confirm('Detach Shadow Brain hooks from ALL agents?')) return; const r = await api('/api/v6/agents-detach-all', {}); if (r) { toast('Detach All', (r.attached?.length ?? 0) + ' agents', 'warn'); refreshAgents(); } }
 
 // ──── Memory browser ───────────────────────────────────────────────────
+function renderCountRows(rows, emptyMessage) {
+  if (!rows || !rows.length) return '<div class="empty-tight">' + htmlEscape(emptyMessage) + '</div>';
+  return rows.slice(0, 8).map(row =>
+    '<div class="row"><span class="k">' + htmlEscape(row.name) + '</span><span class="v">' + htmlEscape(row.count) + '</span></div>'
+  ).join('');
+}
+async function refreshMemoryIntelligence() {
+  const data = await api('/api/v6/memory-intelligence?limit=500');
+  if (!data) return;
+  document.getElementById('mem-total').textContent = data.totalEntries ?? 0;
+  document.getElementById('mem-sampled').textContent = (data.sampledEntries ?? 0) + ' shown in intelligence sample';
+  document.getElementById('mem-source').textContent = Math.round((data.sourceCoverage || 0) * 100) + '%';
+  document.getElementById('mem-fresh').textContent = data.recent7d ?? 0;
+  document.getElementById('mem-seed-open').textContent = data.openSeedDrafts ?? 0;
+  document.getElementById('mem-seed-sub').textContent = (data.pendingApprovals ?? 0) + ' need approval';
+  document.getElementById('mem-categories').innerHTML = renderCountRows(data.byCategory, 'No categories yet.');
+  document.getElementById('mem-agents').innerHTML = renderCountRows(data.byAgent, 'No agent memory writes yet.');
+  document.getElementById('mem-tags').innerHTML = renderCountRows(data.topTags, 'No tags yet.');
+}
 async function searchMemory() {
   const r = await api('/api/v6/memory-browser', {
     query: document.getElementById('mem-query').value,
@@ -2261,6 +2747,190 @@ async function searchMemory() {
 }
 
 // ──── Activity ─────────────────────────────────────────────────────────
+// Live Brain
+// Memory Seeder
+function seedProjectPath() {
+  return document.getElementById('seed-project-path')?.value?.trim()
+    || document.getElementById('live-project-path')?.value?.trim()
+    || document.getElementById('ww2-project-path')?.value?.trim()
+    || '';
+}
+function copyLivePathToSeeder() {
+  const value = document.getElementById('live-project-path')?.value?.trim()
+    || document.getElementById('ww2-project-path')?.value?.trim()
+    || '';
+  if (value) document.getElementById('seed-project-path').value = value;
+}
+function openSeederForLiveBrain() {
+  const projectDir = liveProjectPath() || document.getElementById('ww2-project-path')?.value?.trim() || '';
+  switchTab('seeder', 'Memory Seeder');
+  if (projectDir) document.getElementById('seed-project-path').value = projectDir;
+  const topic = document.getElementById('seed-topic');
+  const objective = document.getElementById('seed-objective');
+  if (topic && !topic.value) topic.value = 'Source-backed live brain improvement';
+  if (objective && !objective.value) objective.value = 'Capture verified project knowledge that future agents should recall before complex work.';
+  refreshSeedDrafts();
+}
+function seedDraftStatusClass(status) {
+  if (status === 'seeded') return 'green';
+  if (status === 'approved') return 'cyan';
+  if (status === 'rejected') return 'red';
+  return 'yellow';
+}
+function renderSeedStatus(drafts) {
+  const counts = { draft: 0, approved: 0, seeded: 0, rejected: 0 };
+  for (const d of drafts || []) counts[d.status] = (counts[d.status] || 0) + 1;
+  return [
+    '<div class="row"><span class="k">Open drafts</span><span class="v warn">' + counts.draft + '</span></div>',
+    '<div class="row"><span class="k">Approved</span><span class="v good">' + counts.approved + '</span></div>',
+    '<div class="row"><span class="k">Seeded</span><span class="v good">' + counts.seeded + '</span></div>',
+    '<div class="row"><span class="k">Rejected</span><span class="v bad">' + counts.rejected + '</span></div>',
+    '<div class="row"><span class="k">Current project</span><span class="v mono">' + htmlEscape(seedProjectPath() || 'dashboard default') + '</span></div>',
+  ].join('');
+}
+function seedJsArg(value) {
+  return JSON.stringify(String(value || ''));
+}
+function renderSeedDrafts(drafts) {
+  if (!drafts || !drafts.length) return '<div class="empty-tight">No seed drafts yet.</div>';
+  return drafts.map(d => {
+    const approvedBy = new Set((d.approvals || []).map(a => a.by));
+    const required = d.requiredApprovals || [];
+    const pending = required.filter(a => !approvedBy.has(a));
+    const agentApprover = d.approverAgent && d.approverAgent !== 'user' ? d.approverAgent : d.researchAgent;
+    const warnings = (d.warnings || []).length
+      ? '<div class="warning-stack" style="margin-top:8px">' + d.warnings.map(w => '<div class="warning-banner"><strong>Review</strong><span>' + htmlEscape(w) + '</span></div>').join('') + '</div>'
+      : '';
+    const sources = (d.sources || []).slice(0, 5).map(s => '<code>' + htmlEscape(s) + '</code>').join(' ');
+    let actions = '';
+    if (d.status === 'draft') {
+      actions += '<button class="btn sm success" onclick="approveSeedDraft(' + seedJsArg(d.id) + ',' + seedJsArg('user') + ')">User Approve</button> ';
+      actions += '<button class="btn sm" onclick="approveSeedDraft(' + seedJsArg(d.id) + ',' + seedJsArg(agentApprover) + ')">Agent Approve</button> ';
+      actions += '<button class="btn sm danger" onclick="rejectSeedDraft(' + seedJsArg(d.id) + ')">Reject</button>';
+    }
+    if (d.status === 'approved') {
+      actions += '<button class="btn sm primary" onclick="commitSeedDraft(' + seedJsArg(d.id) + ')">Seed to Brain</button> ';
+      actions += '<button class="btn sm danger" onclick="rejectSeedDraft(' + seedJsArg(d.id) + ')">Reject</button>';
+    }
+    if (d.status === 'seeded') {
+      actions += '<span class="pill green">memory ' + htmlEscape((d.seededMemoryId || '').slice(0, 10)) + '</span>';
+    }
+    return '<div class="memory-item">' +
+      '<div class="meta">' +
+        '<span class="pill ' + seedDraftStatusClass(d.status) + '">' + htmlEscape(d.status) + '</span>' +
+        '<span class="pill purple">' + htmlEscape(d.researchAgent) + '</span>' +
+        '<span class="pill cyan">' + htmlEscape(d.approvalMode) + '</span>' +
+        '<span>' + htmlEscape(new Date(d.updatedAt || d.createdAt).toLocaleString()) + '</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap">' +
+        '<div style="min-width:260px;flex:1">' +
+          '<div style="font-weight:700;margin-bottom:4px">' + htmlEscape(d.topic) + '</div>' +
+          '<div class="content">' + htmlEscape(d.objective || '').slice(0, 260) + '</div>' +
+          '<div class="mono" style="font-size:11px;color:var(--text-3);margin-top:6px">pending: ' + htmlEscape(pending.join(', ') || 'none') + ' | category: ' + htmlEscape(d.category) + '</div>' +
+          '<div style="font-size:11px;color:var(--text-3);margin-top:6px">' + (sources || 'No sources') + '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">' + actions + '</div>' +
+      '</div>' +
+      warnings +
+      '<pre class="mono" style="margin-top:10px;max-height:180px;overflow:auto;background:var(--bg-elev-1);padding:10px;border-radius:6px;white-space:pre-wrap">' + htmlEscape(d.content || '') + '</pre>' +
+    '</div>';
+  }).join('');
+}
+async function refreshSeedDrafts() {
+  const input = document.getElementById('seed-project-path');
+  if (input && !input.value) input.value = seedProjectPath();
+  const drafts = await api('/api/v6/seed-drafts?limit=50') ?? [];
+  const open = drafts.filter(d => d.status === 'draft' || d.status === 'approved').length;
+  const badge = document.getElementById('badge-seeder');
+  if (badge) badge.textContent = open;
+  const status = document.getElementById('seed-status');
+  if (status) status.innerHTML = renderSeedStatus(drafts);
+  const list = document.getElementById('seed-drafts');
+  if (list) list.innerHTML = renderSeedDrafts(drafts);
+}
+async function createSeedDraft() {
+  const topic = document.getElementById('seed-topic').value.trim();
+  if (!topic) { toast('Topic required', 'Add a seed topic before creating a draft.', 'warn'); return; }
+  const draft = await api('/api/v6/seed-draft', {
+    projectDir: seedProjectPath(),
+    topic,
+    objective: document.getElementById('seed-objective').value,
+    researchAgent: document.getElementById('seed-research-agent').value,
+    approverAgent: document.getElementById('seed-approver-agent').value,
+    approvalMode: document.getElementById('seed-approval-mode').value,
+    category: document.getElementById('seed-category').value,
+    tags: document.getElementById('seed-tags').value,
+    importance: parseFloat(document.getElementById('seed-importance').value || '0.78'),
+    sources: document.getElementById('seed-sources').value,
+    content: document.getElementById('seed-content').value,
+  });
+  if (draft) {
+    toast('Seed draft created', draft.status);
+    refreshSeedDrafts();
+  }
+}
+async function approveSeedDraft(id, approvedBy) {
+  const draft = await api('/api/v6/seed-approve', { id, approvedBy });
+  if (draft) {
+    toast('Approval recorded', draft.status);
+    refreshSeedDrafts();
+  }
+}
+async function rejectSeedDraft(id) {
+  const reason = prompt('Reject reason', 'Not verified enough');
+  if (reason === null) return;
+  const draft = await api('/api/v6/seed-reject', { id, reason, rejectedBy: 'user' });
+  if (draft) {
+    toast('Draft rejected', draft.topic, 'warn');
+    refreshSeedDrafts();
+  }
+}
+async function commitSeedDraft(id) {
+  const draft = await api('/api/v6/seed-commit', { id, seededBy: 'user' });
+  if (draft) {
+    toast('Seeded to brain', (draft.seededMemoryId || '').slice(0, 10));
+    refreshSeedDrafts();
+    refreshLiveBrain();
+  }
+}
+
+function liveProjectPath() {
+  return document.getElementById('live-project-path')?.value?.trim() || '';
+}
+function liveActionPill(priority) {
+  if (priority === 'critical' || priority === 'high') return 'red';
+  if (priority === 'medium') return 'yellow';
+  return 'cyan';
+}
+async function refreshLiveBrain() {
+  const projectDir = liveProjectPath();
+  const queries = document.getElementById('live-queries')?.value?.trim() || '';
+  const url = '/api/v6/live-brain?projectDir=' + encodeURIComponent(projectDir) + (queries ? '&queries=' + encodeURIComponent(queries) : '');
+  const data = await api(url);
+  if (!data) return;
+
+  const quality = data.memoryQuality || {};
+  document.getElementById('live-memories').textContent = quality.totalEntries ?? 0;
+  document.getElementById('live-quality').textContent = (quality.avgScore ?? 0) + '/100';
+  document.getElementById('live-sources').textContent = Math.round((quality.sourceCoverage ?? 0) * 100) + '%';
+  document.getElementById('live-recall').textContent = data.recallEval?.avgHitCount ?? 0;
+  document.getElementById('live-scope').textContent = data.projectScoped ? 'project scoped' : 'global fallback';
+
+  document.getElementById('live-actions').innerHTML = (data.learningActions || []).length
+    ? data.learningActions.map(a => \`<div class="memory-item"><div class="meta"><span class="pill \${liveActionPill(a.priority)}">\${a.priority}</span><span>\${a.title}</span></div><div class="content">\${a.reason}</div>\${a.command ? '<code>' + a.command + '</code>' : ''}</div>\`).join('')
+    : '<div class="empty">No immediate hygiene actions.</div>';
+
+  document.getElementById('live-eval').innerHTML = (data.recallEval?.cases || []).map(c =>
+    \`<div class="row"><span class="k">\${c.query}</span><span class="v \${c.hitCount ? 'good' : 'bad'}">\${c.hitCount} hits - \${c.sourceBackedHits} sourced</span></div>\`
+  ).join('') || '<div class="empty">No eval cases.</div>';
+
+  document.getElementById('live-top').innerHTML = (data.topMemories || []).slice(0, 8).map(m =>
+    \`<div class="memory-item"><div class="meta"><span class="pill purple">\${m.agentTool}</span><span>\${m.category}</span><span>score \${m.qualityScore}/100</span></div><div class="content">\${(m.content || '').slice(0, 260)}</div></div>\`
+  ).join('') || '<div class="empty">No memories.</div>';
+
+  document.getElementById('live-brief').textContent = data.agentBriefing || '';
+}
+
 async function refreshActivity() {
   const filter = document.getElementById('act-filter').value;
   const log = await api('/api/v6/activity-log?limit=200') ?? [];

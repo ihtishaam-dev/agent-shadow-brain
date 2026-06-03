@@ -11,12 +11,49 @@ import * as os from 'os';
 import * as crypto from 'crypto';
 import {
   AgentTool,
+  TokenEconomyBucket,
   TokenEconomyStats,
   TokenSpendRecord,
 } from '../types.js';
 
-const SPEND_PATH = path.join(os.homedir(), '.shadow-brain', 'token-spend.jsonl');
-const STATS_PATH = path.join(os.homedir(), '.shadow-brain', 'token-economy.json');
+function brainHomeDir(): string {
+  return process.env.SHADOW_BRAIN_HOME || process.env.HOME || os.homedir();
+}
+
+function spendPath(): string {
+  return path.join(brainHomeDir(), '.shadow-brain', 'token-spend.jsonl');
+}
+
+function statsPath(): string {
+  return path.join(brainHomeDir(), '.shadow-brain', 'token-economy.json');
+}
+
+function emptyBucket(): TokenEconomyBucket {
+  return { spendUsd: 0, calls: 0, inputTokens: 0, outputTokens: 0 };
+}
+
+function addSpendBucket(
+  target: Record<string, TokenEconomyBucket>,
+  key: string,
+  record: TokenSpendRecord,
+): void {
+  const bucket = target[key] ?? emptyBucket();
+  bucket.spendUsd += record.estimatedCostUsd;
+  bucket.calls++;
+  bucket.inputTokens = (bucket.inputTokens ?? 0) + record.inputTokens;
+  bucket.outputTokens = (bucket.outputTokens ?? 0) + record.outputTokens;
+  if (!bucket.lastSeen || record.timestamp.getTime() > new Date(bucket.lastSeen).getTime()) {
+    bucket.lastSeen = record.timestamp;
+  }
+  target[key] = bucket;
+}
+
+function roundBuckets<T extends Record<string, TokenEconomyBucket>>(buckets: T): T {
+  for (const bucket of Object.values(buckets)) {
+    bucket.spendUsd = +bucket.spendUsd.toFixed(6);
+  }
+  return buckets;
+}
 
 // Per-1M-tokens USD pricing (rough, for projection only)
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
@@ -47,24 +84,28 @@ export class TokenEconomy {
 
   async init(): Promise<void> {
     if (this.initialized) return;
-    fs.mkdirSync(path.dirname(SPEND_PATH), { recursive: true });
+    const spendFile = spendPath();
+    const statsFile = statsPath();
+    fs.mkdirSync(path.dirname(spendFile), { recursive: true });
 
-    if (fs.existsSync(SPEND_PATH)) {
+    if (fs.existsSync(spendFile)) {
       try {
-        const raw = fs.readFileSync(SPEND_PATH, 'utf-8');
+        const raw = fs.readFileSync(spendFile, 'utf-8');
         for (const line of raw.split('\n')) {
           if (!line.trim()) continue;
           const r = JSON.parse(line) as TokenSpendRecord;
-          this.records.push({ ...r, timestamp: new Date(r.timestamp) });
+          if (this.isValidRecord(r)) {
+            this.records.push({ ...r, timestamp: new Date(r.timestamp) });
+          }
         }
       } catch {
         /* skip */
       }
     }
 
-    if (fs.existsSync(STATS_PATH)) {
+    if (fs.existsSync(statsFile)) {
       try {
-        const parsed = JSON.parse(fs.readFileSync(STATS_PATH, 'utf-8')) as PersistShape;
+        const parsed = JSON.parse(fs.readFileSync(statsFile, 'utf-8')) as PersistShape;
         this.savingsOpportunitiesUsd = parsed.savingsOpportunitiesUsd ?? 0;
       } catch {
         /* skip */
@@ -78,6 +119,7 @@ export class TokenEconomy {
   async record(input: {
     agentTool: AgentTool;
     model: string;
+    provider?: string;
     inputTokens: number;
     outputTokens: number;
     taskCategory?: string;
@@ -92,6 +134,7 @@ export class TokenEconomy {
       id: `spend-${crypto.randomBytes(6).toString('hex')}`,
       agentTool: input.agentTool,
       model,
+      provider: input.provider,
       inputTokens: input.inputTokens,
       outputTokens: input.outputTokens,
       estimatedCostUsd: +cost.toFixed(6),
@@ -101,7 +144,7 @@ export class TokenEconomy {
 
     this.records.push(record);
     try {
-      fs.appendFileSync(SPEND_PATH, JSON.stringify(record) + '\n');
+      fs.appendFileSync(spendPath(), JSON.stringify(record) + '\n');
     } catch {
       /* non-fatal */
     }
@@ -114,31 +157,38 @@ export class TokenEconomy {
     const byAgent: TokenEconomyStats['byAgent'] = {};
     const byModel: TokenEconomyStats['byModel'] = {};
     const byCategory: TokenEconomyStats['byCategory'] = {};
+    const recentByAgent: TokenEconomyStats['recentByAgent'] = {};
+    const recentByModel: TokenEconomyStats['recentByModel'] = {};
+    const recentByCategory: TokenEconomyStats['recentByCategory'] = {};
 
     let totalSpend = 0;
     let totalInput = 0;
     let totalOutput = 0;
+    let lastRecord: TokenSpendRecord | null = null;
+    const recentWindowDays = 7;
+    const weekAgo = Date.now() - recentWindowDays * 24 * 60 * 60 * 1000;
 
     for (const r of this.records) {
       totalSpend += r.estimatedCostUsd;
       totalInput += r.inputTokens;
       totalOutput += r.outputTokens;
 
-      byAgent[r.agentTool] = byAgent[r.agentTool] ?? { spendUsd: 0, calls: 0 };
-      byAgent[r.agentTool].spendUsd += r.estimatedCostUsd;
-      byAgent[r.agentTool].calls++;
+      if (!lastRecord || r.timestamp.getTime() > lastRecord.timestamp.getTime()) {
+        lastRecord = r;
+      }
 
-      byModel[r.model] = byModel[r.model] ?? { spendUsd: 0, calls: 0 };
-      byModel[r.model].spendUsd += r.estimatedCostUsd;
-      byModel[r.model].calls++;
+      addSpendBucket(byAgent, r.agentTool, r);
+      addSpendBucket(byModel, r.model, r);
+      addSpendBucket(byCategory, r.taskCategory, r);
 
-      byCategory[r.taskCategory] = byCategory[r.taskCategory] ?? { spendUsd: 0, calls: 0 };
-      byCategory[r.taskCategory].spendUsd += r.estimatedCostUsd;
-      byCategory[r.taskCategory].calls++;
+      if (r.timestamp.getTime() >= weekAgo) {
+        addSpendBucket(recentByAgent, r.agentTool, r);
+        addSpendBucket(recentByModel, r.model, r);
+        addSpendBucket(recentByCategory, r.taskCategory, r);
+      }
     }
 
     // Project monthly spend from last 7 days
-    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const recent = this.records.filter(r => r.timestamp.getTime() >= weekAgo);
     const weeklySpend = recent.reduce((acc, r) => acc + r.estimatedCostUsd, 0);
     const monthlyProjectionUsd = +(weeklySpend * (30 / 7)).toFixed(2);
@@ -151,9 +201,15 @@ export class TokenEconomy {
       totalSpendUsd: +totalSpend.toFixed(4),
       totalInputTokens: totalInput,
       totalOutputTokens: totalOutput,
-      byAgent,
-      byModel,
-      byCategory,
+      byAgent: roundBuckets(byAgent),
+      byModel: roundBuckets(byModel),
+      byCategory: roundBuckets(byCategory),
+      recentWindowDays,
+      recentSpendUsd: +weeklySpend.toFixed(4),
+      recentByAgent: roundBuckets(recentByAgent),
+      recentByModel: roundBuckets(recentByModel),
+      recentByCategory: roundBuckets(recentByCategory),
+      lastRecord,
       monthlyProjectionUsd,
       savingsOpportunitiesUsd: +savings.toFixed(2),
       suggestions,
@@ -236,12 +292,26 @@ export class TokenEconomy {
         savingsOpportunitiesUsd: savings,
         lastRecalculated: new Date().toISOString(),
       };
-      const tmp = STATS_PATH + '.tmp';
+      const file = statsPath();
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      const tmp = file + '.tmp';
       fs.writeFileSync(tmp, JSON.stringify(shape, null, 2));
-      fs.renameSync(tmp, STATS_PATH);
+      fs.renameSync(tmp, file);
     } catch {
       /* non-fatal */
     }
+  }
+
+  private isValidRecord(record: Partial<TokenSpendRecord>): record is TokenSpendRecord {
+    return Boolean(
+      record &&
+      typeof record.agentTool === 'string' &&
+      typeof record.model === 'string' &&
+      Number.isFinite(record.inputTokens) &&
+      Number.isFinite(record.outputTokens) &&
+      Number.isFinite(record.estimatedCostUsd) &&
+      record.timestamp,
+    );
   }
 }
 

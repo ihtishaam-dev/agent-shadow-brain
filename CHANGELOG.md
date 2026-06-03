@@ -1,5 +1,44 @@
 # Changelog
 
+## [6.0.3] - 2026-06-03 - Live Brain Release
+
+This release makes Shadow Brain more realistic and more useful for complex agent work. It focuses on source-backed long memory, live memory health, recall evals, agent briefings, and release-ready docs.
+
+### Added
+
+- `src/brain/live-brain.ts`: Live Brain report engine for memory health, recall evals, hygiene actions, top memories, and agent briefings.
+- `src/brain/memory-seeder.ts`: verified memory seeding workflow with draft, user approval, agent approval, dual approval, reject, and seed-to-brain states.
+- `shadow-brain live-brain status`: shows memory quality, source coverage, recall health, and recommended actions.
+- `shadow-brain live-brain brief`: writes a markdown briefing for fresh sessions, handoffs, and context recovery.
+- `shadow-brain live-brain eval`: checks whether useful memory can be recalled for agent workflows.
+- `shadow-brain live-brain hygiene`: lists stale, duplicate, low-quality, and source-light memory issues.
+- `shadow-brain live-brain train-pack`: exports source-backed JSONL examples for evals, distillation, or local fine-tuning pipelines.
+- `/api/v6/live-brain` and the v6 dashboard Live Brain tab: dashboard/API route and UI for the same report and markdown briefing.
+- `/api/v6/memory-intelligence`: live memory data for source coverage, freshness, categories, agents, tags, recent writes, and approval queue counts.
+- `/api/v6/seed-*`: dashboard/API workflow for creating research drafts, approving/rejecting them, and committing approved drafts to global memory.
+- Dashboard Memory Seeder tab: select research agent, approval agent, approval mode, project path, sources, category, tags, and importance before writing durable memory.
+- Dashboard launch controls: `shadow-brain dash --host 127.0.0.1 --no-analysis` for fast UI/API startup on large repos.
+- MCP tools: `live_brain_status`, `live_brain_brief`, and `live_brain_train_pack`.
+- Focused tests for Live Brain scoring, briefing, recall eval, JSONL export, and memory seeding approval gates.
+
+### Changed
+
+- README rewritten to be realistic about what the project does and does not do.
+- npm package version updated to `6.0.3`.
+- npm package description replaced with a practical local-first memory description.
+- Runtime-visible versions updated in CLI, auto-update, portability export, orchestrator status, and MCP server metadata.
+- Resume-pack source discovery now includes common repo docs such as `README.md`, `CHANGELOG.md`, `package.json`, and roadmap docs in addition to project-specific agent/progress files.
+- CLI config merging now honors explicit `watchMode: false` from one-shot commands.
+- Token Economy dashboard now separates the current runtime agent from historical model spend records, avoiding misleading labels such as an old Claude model appearing as the active Codex runtime.
+
+### Notes
+
+- "Training" in this release means data export for user-run evals, distillation, or local fine-tuning. Shadow Brain does not modify remote model weights.
+- No new runtime dependencies were added.
+- Verification: TypeScript build passed; the full Vitest suite passed; `npm pack --dry-run` passed.
+
+---
+
 All notable changes to `@theihtisham/agent-shadow-brain` are documented here.
 
 This project follows [Semantic Versioning](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/) conventions.
