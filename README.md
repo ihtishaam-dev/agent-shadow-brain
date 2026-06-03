@@ -7,7 +7,7 @@ Version: 6.0.3
 <p align="center">
   <img src="docs/launch/agent-shadow-brain-v6.0.3-banner.png" alt="Agent Shadow Brain shared local memory layer for AI agents" width="100%">
 </p>
-<p>
+<p align="center">
   <a href="https://trendshift.io/repositories/20881" target="_blank"><img src="https://trendshift.io/api/badge/repositories/20881" alt="chopratejas%2Fheadroom | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </p>
 <p align="center">
