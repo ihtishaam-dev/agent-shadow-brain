@@ -18,6 +18,27 @@ Agent Shadow Brain gives tools like Codex, Claude Code, Cursor, Cline, OpenCode,
 
 It does not change model weights by itself. It helps agents work better by giving them relevant, current, source-linked context before and during complex work.
 
+## What's New in 6.2.0
+
+A major dashboard upgrade focused on clarity and visibility.
+
+- **Simple by default, Advanced on demand.** The dashboard opens with eight plain-English tabs (Home, Brain Map, Memories, Ask the Brain, Activity, Connected Tools, Brain Health, Settings). Flip to Advanced to reveal every feature — nothing was removed, just tidied.
+- **Brain Map.** An interactive graph of everything the brain remembers — memories, projects, tools, and tags — sized by importance (PageRank) and linked by shared context. Zoom, pan, click a node for details, and watch it grow live as new memories arrive.
+- **Realtime activity.** Memory writes, reflections, and tool events stream live over WebSocket instead of polling, with a live pulse on Home.
+- **Live Network.** A refreshed animation of your tools talking to the brain, with flowing signal pulses.
+- **Two-way knowledge seeding.** Quick-Save captures knowledge in one click; "Hand to Agent" generates a ready briefing to pass context back to any tool.
+- **Plain-language everywhere.** Cryptic feature names rewritten (e.g. Calibration → Accuracy, Pre-Mortem → Risk Check, Tokens → Cost & Usage), each with a hover description.
+
+<p align="center">
+  <img src="docs/screenshots/01-home.png" alt="Shadow Brain dashboard Home — summary of memories, connected tools, and live activity" width="100%">
+</p>
+<p align="center">
+  <img src="docs/screenshots/02-brain-map.png" alt="Brain Map — interactive memory constellation graph" width="100%">
+</p>
+<p align="center">
+  <img src="docs/screenshots/03-live-network.png" alt="Live Network — animated view of tools communicating with the brain" width="100%">
+</p>
+
 ## What It Actually Does
 
 - Stores cross-project and cross-agent memories in a local JSON brain at `~/.shadow-brain/global.json`.
