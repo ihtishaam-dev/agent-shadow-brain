@@ -23,6 +23,7 @@ import {
   GlobalEntry,
   BrainTimelineEvent,
 } from '../types.js';
+import { getBrainBus } from './brain-bus.js';
 
 const DEFAULT_DIR = path.join(os.homedir(), '.shadow-brain');
 const DEFAULT_DB_PATH = path.join(DEFAULT_DIR, 'global.json');
@@ -200,7 +201,27 @@ export class GlobalBrain {
     this.entries.set(id, fullEntry);
     this.dirty = true;
     this.stats.totalEntries = this.entries.size;
+    this.publishWrite(fullEntry);
     return id;
+  }
+
+  /** Broadcast a memory-write to the realtime activity bus (best-effort). */
+  private publishWrite(entry: GlobalEntry): void {
+    try {
+      getBrainBus().publish({
+        id: `memory-write:${entry.id}`,
+        ts: entry.createdAt instanceof Date ? entry.createdAt.getTime() : Date.now(),
+        type: 'memory-write',
+        source: entry.agentTool,
+        detail: `[${entry.category}] ${String(entry.content).slice(0, 220)}`,
+        meta: {
+          category: entry.category,
+          importance: entry.importance,
+          projectName: entry.projectName,
+          projectId: entry.projectId,
+        },
+      });
+    } catch { /* bus failures must never break a write */ }
   }
 
   /** Recall entries — cross-project + cross-agent */
@@ -314,6 +335,11 @@ export class GlobalBrain {
     return { ...this.stats };
   }
 
+  /** Absolute path to the on-disk brain store — used by the dashboard file watcher. */
+  get dbPath(): string {
+    return this.config.dbPath;
+  }
+
   /** Force a sync of pending writes to disk */
   async sync(): Promise<void> {
     if (!this.initialized) return;
@@ -323,6 +349,7 @@ export class GlobalBrain {
       for (const { entry, resolve } of pending) {
         try {
           this.entries.set(entry.id, entry);
+          this.publishWrite(entry);
           resolve(true);
         } catch {
           resolve(false);

@@ -17,6 +17,7 @@ import {
   ForgettingState,
   MemoryTier,
 } from '../types.js';
+import { getBrainBus } from './brain-bus.js';
 
 const STATE_PATH = path.join(os.homedir(), '.shadow-brain', 'forgetting.json');
 
@@ -129,6 +130,23 @@ export class ForgettingCurve {
     this.reports.push(report);
     if (this.reports.length > 50) this.reports = this.reports.slice(-50);
     await this.persist();
+    try {
+      getBrainBus().publish({
+        id: `consolidation:${report.cycle}:${report.ranAt instanceof Date ? report.ranAt.getTime() : Date.now()}`,
+        ts: report.ranAt instanceof Date ? report.ranAt.getTime() : Date.now(),
+        type: 'consolidation',
+        source: 'forgetting-curve',
+        detail: `cycle ${report.cycle}: ${report.promoted}↑ ${report.demoted}↓ ${report.forgotten}✗ ${report.strengthened}★ of ${report.processedMemories}`,
+        meta: {
+          cycle: report.cycle,
+          promoted: report.promoted,
+          demoted: report.demoted,
+          forgotten: report.forgotten,
+          strengthened: report.strengthened,
+          processed: report.processedMemories,
+        },
+      });
+    } catch { /* bus failures never break a consolidation cycle */ }
     return report;
   }
 

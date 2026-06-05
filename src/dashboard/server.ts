@@ -3,12 +3,15 @@
 // 8-panel layout: Health, Insights, AI Tools, Memory Tiers, Modules, Fixes, Controls, Activity
 
 import * as http from 'http';
+import * as fs from 'fs';
+import chokidar, { FSWatcher } from 'chokidar';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Orchestrator } from '../brain/orchestrator.js';
 import { BrainInsight } from '../types.js';
 import { AgentFirewall } from '../brain/agent-firewall.js';
 import { analyzeMemoryQuality, generateContextResumePack } from '../brain/context-continuity.js';
 import { getGlobalBrain, GlobalBrain } from '../brain/global-brain.js';
+import { getBrainBus, BrainActivityEvent } from '../brain/brain-bus.js';
 import { V6_DASHBOARD_HTML } from './v6-dashboard-html.js';
 
 export interface DashboardOptions {
@@ -223,11 +226,6 @@ function ts(){return new Date().toLocaleTimeString('en-US',{hour12:false})}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function sc(v){return v>=85?'var(--green)':v>=70?'var(--yellow)':v>=50?'var(--orange)':'var(--red)'}
 
-// Log to insights panel feedback via activity
-function logActivity(msg,type){
-  // We no longer have a dedicated log panel, so we use a minimal approach
-}
-
 function renderHealth(s){
   if(!s)return;
   const c=sc(s.overall);
@@ -413,6 +411,11 @@ export class DashboardServer {
   private clients: Set<WebSocket> = new Set();
   private orchestrator: Orchestrator;
   private options: Required<DashboardOptions>;
+  private brainBusUnsub: (() => void) | null = null;
+  private brainWatcher: FSWatcher | null = null;
+  private brainDbPath = '';
+  private seenEntryIds: Set<string> = new Set();
+  private brainFileDebounce: NodeJS.Timeout | null = null;
 
   constructor(orchestrator: Orchestrator, options: DashboardOptions = {}) {
     this.orchestrator = orchestrator;
@@ -429,6 +432,112 @@ export class DashboardServer {
     this.wss = new WebSocketServer({ server: this.server });
     this.setupWebSocket();
     this.subscribeToOrchestrator();
+    this.subscribeToBrainBus();
+    this.startBrainFileWatcher();
+  }
+
+  /** Forward every realtime brain-bus event straight to all WebSocket clients. */
+  private subscribeToBrainBus(): void {
+    this.brainBusUnsub = getBrainBus().subscribe((event: BrainActivityEvent) => {
+      this.broadcast({ type: 'activity', event });
+    });
+  }
+
+  /**
+   * Cross-process realtime: an agent in another terminal writes to the shared
+   * ~/.shadow-brain/global.json. That write lands in a different process's
+   * GlobalBrain instance, so the in-process bus never sees it. We watch the
+   * file and republish any entry id we have not already broadcast. The bus
+   * dedups by composite id, so our own in-process memory-writes are ignored.
+   */
+  private startBrainFileWatcher(): void {
+    try {
+      const brain = getGlobalBrain();
+      this.brainDbPath = brain.dbPath;
+      // Seed the seen-set with current contents so we never replay history.
+      this.primeSeenEntryIds();
+
+      this.brainWatcher = chokidar.watch(this.brainDbPath, {
+        persistent: true,
+        ignoreInitial: true,
+        awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 },
+      });
+      const onChange = () => {
+        if (this.brainFileDebounce) clearTimeout(this.brainFileDebounce);
+        this.brainFileDebounce = setTimeout(() => this.scanBrainFile(), 400);
+      };
+      this.brainWatcher.on('add', onChange).on('change', onChange);
+    } catch { /* watcher is best-effort; in-process events still flow */ }
+  }
+
+  private primeSeenEntryIds(): void {
+    try {
+      const raw = fs.readFileSync(this.brainDbPath, 'utf-8');
+      const parsed = JSON.parse(raw) as { entries?: Array<{ id: string }> };
+      for (const e of parsed.entries ?? []) this.seenEntryIds.add(e.id);
+    } catch { /* file may not exist yet */ }
+  }
+
+  /** Re-read the on-disk brain and publish any entries we haven't seen. */
+  private scanBrainFile(): void {
+    let parsed: { entries?: Array<Record<string, unknown>> };
+    let raw = '';
+    try {
+      raw = fs.readFileSync(this.brainDbPath, 'utf-8');
+    } catch { return; }
+
+    // Very large stores: skip the per-entry diff, emit one generic pulse.
+    if (raw.length > 8_000_000) {
+      getBrainBus().publish({
+        id: `brain-updated:${Date.now()}`,
+        type: 'brain-updated',
+        source: 'global-brain',
+        detail: 'brain store updated (large store — details suppressed)',
+      });
+      return;
+    }
+
+    try {
+      parsed = JSON.parse(raw);
+    } catch { return; }
+
+    const entries = parsed.entries ?? [];
+    let fresh = 0;
+    for (const e of entries) {
+      const id = String((e as { id?: unknown }).id ?? '');
+      if (!id || this.seenEntryIds.has(id)) continue;
+      this.seenEntryIds.add(id);
+      fresh++;
+      // Cap how many we replay in a single burst to avoid flooding the UI.
+      if (fresh > 100) continue;
+      getBrainBus().publish({
+        id: `memory-write:${id}`,
+        ts: this.toEpoch((e as { createdAt?: unknown }).createdAt),
+        type: 'memory-write',
+        source: String((e as { agentTool?: unknown }).agentTool ?? 'agent'),
+        detail: `[${String((e as { category?: unknown }).category ?? '')}] ${String((e as { content?: unknown }).content ?? '').slice(0, 220)}`,
+        meta: {
+          category: (e as { category?: unknown }).category,
+          importance: (e as { importance?: unknown }).importance,
+          projectName: (e as { projectName?: unknown }).projectName,
+          crossProcess: true,
+        },
+      });
+    }
+    if (fresh > 100) {
+      getBrainBus().publish({
+        id: `brain-updated:${Date.now()}`,
+        type: 'brain-updated',
+        source: 'global-brain',
+        detail: `${fresh} memories written (showing first 100)`,
+      });
+    }
+  }
+
+  private toEpoch(v: unknown): number {
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string') { const t = Date.parse(v); if (!Number.isNaN(t)) return t; }
+    return Date.now();
   }
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
@@ -676,6 +785,20 @@ export class DashboardServer {
       case '/api/v6/seed-commit': {
         const { getMemorySeeder } = await import('../brain/memory-seeder.js');
         return send(await getMemorySeeder().seed(body.id, body.seededBy || 'user'));
+      }
+      case '/api/v6/agent-handoff': {
+        const { AgentHandoff } = await import('../brain/agent-handoff.js');
+        const projectDir = String(body.projectDir || qs.get('projectDir') || this.getDefaultWorkflowProjectDir());
+        const packet = await new AgentHandoff().generate({
+          fromAgent: (body.fromAgent || 'user') as any,
+          toAgent: (body.toAgent || 'claude-code') as any,
+          projectDir,
+          task: body.task,
+          limit: body.limit ?? 12,
+        });
+        const format = String(body.format || qs.get('format') || 'json').toLowerCase();
+        if (format === 'markdown' || format === 'md') return send(packet.markdown, 200, 'text/markdown; charset=utf-8');
+        return send(packet);
       }
       case '/api/v6/subagent-sliver': {
         const { getSubAgentBridge } = await import('../brain/subagent-bridge.js');
@@ -1138,6 +1261,21 @@ export class DashboardServer {
             }));
         return send(results);
       }
+      case '/api/v6/memory-graph': {
+        const { getMemoryGraph } = await import('../brain/memory-graph.js');
+        const projectDirRaw = String(qs.get('projectDir') || body.projectDir || '').trim();
+        const limit = Number(qs.get('limit') ?? body.limit ?? 400);
+        const maxNodes = Number(qs.get('maxNodes') ?? body.maxNodes ?? 180);
+        const minImportance = Number(qs.get('minImportance') ?? body.minImportance ?? 0);
+        const projectId = projectDirRaw ? GlobalBrain.projectIdFor(projectDirRaw) : undefined;
+        const snapshot = await getMemoryGraph().build({
+          projectId,
+          limit: Number.isFinite(limit) ? limit : 400,
+          maxNodes: Number.isFinite(maxNodes) ? maxNodes : 180,
+          minImportance: Number.isFinite(minImportance) ? minImportance : 0,
+        });
+        return send(snapshot);
+      }
       case '/api/v6/topology': {
         // Assemble a real-time topology snapshot: agents + sub-agents + recent signal events
         const projectDir = (body.projectDir as string) || process.cwd();
@@ -1582,6 +1720,10 @@ export class DashboardServer {
         swarmConv: (status.swarmConvergence as number) ?? 0,
       });
 
+      // Replay recent realtime activity so a late-connecting client's live
+      // feed is populated immediately instead of waiting for the next event.
+      this.send(ws, { type: 'activity-backlog', events: getBrainBus().recent(50) });
+
       ws.on('close', () => { this.clients.delete(ws); });
       ws.on('error', () => { this.clients.delete(ws); });
     });
@@ -1657,6 +1799,11 @@ export class DashboardServer {
 
   async stop(): Promise<void> {
     return new Promise((resolve) => {
+      try { this.brainBusUnsub?.(); } catch { /* ignore */ }
+      this.brainBusUnsub = null;
+      if (this.brainFileDebounce) { clearTimeout(this.brainFileDebounce); this.brainFileDebounce = null; }
+      try { this.brainWatcher?.close(); } catch { /* ignore */ }
+      this.brainWatcher = null;
       for (const client of this.clients) {
         try { client.close(); } catch { /* ignore */ }
       }

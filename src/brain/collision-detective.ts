@@ -16,6 +16,7 @@ import {
   CollisionStats,
   AgentTool,
 } from '../types.js';
+import { getBrainBus } from './brain-bus.js';
 
 const INTENTS_PATH = path.join(os.homedir(), '.shadow-brain', 'collision-intents.json');
 const DEFAULT_INTENT_TTL_MS = 10 * 60 * 1000; // 10 minutes
@@ -122,6 +123,20 @@ export class CollisionDetective {
       const overlapSize = collision.overlapEndLine - collision.overlapStartLine + 1;
       const n = this.stats.collisionsDetected;
       this.stats.avgOverlapLines = this.stats.avgOverlapLines + (overlapSize - this.stats.avgOverlapLines) / n;
+      try {
+        getBrainBus().publish({
+          id: `collision:${collision.id}`,
+          ts: collision.detectedAt instanceof Date ? collision.detectedAt.getTime() : Date.now(),
+          type: 'collision',
+          source: agentTool,
+          detail: String(collision.suggestedResolution).slice(0, 220),
+          meta: {
+            file: collision.filePath,
+            agents: collision.conflictingIntents.map(c => c.agentTool),
+            overlap: `${collision.overlapStartLine}-${collision.overlapEndLine}`,
+          },
+        });
+      } catch { /* bus failures never break collision detection */ }
     }
 
     await this.persist();

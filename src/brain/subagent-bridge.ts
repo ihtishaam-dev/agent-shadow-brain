@@ -27,6 +27,7 @@ import {
   GlobalEntry,
 } from '../types.js';
 import { GlobalBrain, getGlobalBrain } from './global-brain.js';
+import { getBrainBus } from './brain-bus.js';
 
 const SABB_DIR = path.join(os.homedir(), '.shadow-brain', 'sabb');
 const QUARANTINE_PATH = path.join(SABB_DIR, 'quarantine.json');
@@ -120,6 +121,17 @@ export class SubAgentBridge {
     } catch {
       // Log failures are non-fatal
     }
+
+    try {
+      getBrainBus().publish({
+        id: `subagent-spawn:${spawn.subAgentId}`,
+        ts: spawn.spawnTime instanceof Date ? spawn.spawnTime.getTime() : Date.now(),
+        type: 'subagent-spawn',
+        source: spawn.parentAgent,
+        detail: `→ ${spawn.framework}: ${String(spawn.taskDescription ?? '').slice(0, 200)}`,
+        meta: { subAgentId: spawn.subAgentId, framework: spawn.framework, parentAgent: spawn.parentAgent },
+      });
+    } catch { /* bus failures never break a spawn registration */ }
 
     await this.flush();
     return spawn;
