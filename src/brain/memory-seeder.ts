@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import { AgentTool, GlobalBrainConfig, GlobalEntry } from '../types.js';
 import { GlobalBrain, getGlobalBrain } from './global-brain.js';
+import { getBrainBus } from './brain-bus.js';
 
 export type SeedApprovalMode = 'user' | 'agent' | 'dual';
 export type SeedDraftStatus = 'draft' | 'approved' | 'seeded' | 'rejected';
@@ -318,6 +319,16 @@ export class MemorySeeder {
 
     this.drafts.unshift(draft);
     this.persist();
+    try {
+      getBrainBus().publish({
+        id: `seed-draft:${draft.id}`,
+        ts: Date.now(),
+        type: 'seed-draft',
+        source: `seed:${draft.researchAgent}`,
+        detail: `[${draft.status}] ${draft.topic} | approval: ${draft.approvalMode}`,
+        meta: { topic: draft.topic, category: draft.category, approvalMode: draft.approvalMode, researchAgent: draft.researchAgent },
+      });
+    } catch { /* bus failures never break drafting */ }
     return draft;
   }
 
@@ -389,6 +400,16 @@ export class MemorySeeder {
     draft.seededMemoryId = seededMemoryId;
     draft.updatedAt = draft.seededAt;
     this.persist();
+    try {
+      getBrainBus().publish({
+        id: `seed-commit:${draft.id}`,
+        ts: Date.now(),
+        type: 'seed-commit',
+        source: `seed:${normalizeAgent(seededBy, draft.researchAgent)}`,
+        detail: `committed "${draft.topic}" → brain [${draft.category}]`,
+        meta: { topic: draft.topic, category: draft.category, seededMemoryId, importance: draft.importance },
+      });
+    } catch { /* bus failures never break a seed commit */ }
     return draft;
   }
 

@@ -2,7 +2,7 @@
 
 Local-first memory and coordination for AI coding agents.
 
-Version: 6.0.3
+Version: 6.2.0
 
 <p align="center">
   <img src="docs/launch/agent-shadow-brain-v6.0.3-banner.png" alt="Agent Shadow Brain shared local memory layer for AI agents" width="100%">
@@ -234,6 +234,36 @@ It also includes:
 - **Memory Browser intelligence cards** for total memories, source coverage, fresh learning, seed queue, top categories, agent coverage, and top tags.
 - **Memory Seeder** for controlled research-to-memory workflows. Drafts stay out of the global brain until approval is complete.
 - **Token Economy accuracy split**: current runtime agent is shown separately from historical model spend, so old Claude/Cursor spend records do not imply the dashboard is running that agent.
+
+### Realtime Activity (new in 6.1.0)
+
+The dashboard now streams brain activity live over its WebSocket instead of polling. Memory writes, dreams, seed drafts/commits, collisions, sub-agent spawns, and consolidation cycles appear the instant they happen.
+
+- **Live Pulse** card on the Overview with a streaming mini-feed and an events/min rate.
+- **Activity Log** tab with filter chips, a pulsing LIVE badge, pause/resume, clear, search, and an events/min sparkline.
+- **Connection indicator** in the header — green when the realtime socket is live, amber while reconnecting.
+- **Cross-process aware**: a memory written by an agent in a *different* terminal is picked up by watching `~/.shadow-brain/global.json`, so the feed reflects the whole machine, not just this process.
+
+Polling remains as a 15-second reconciliation fallback; live events arrive in well under a second.
+
+### Intelligence Hub — Memory Constellation (new in 6.2.0)
+
+A new **Intelligence** tab turns the brain into an interactive graph. Every memory, project, agent, and tag is a node in a force-directed **Memory Constellation**, sized by importance (PageRank blended with each memory's own score) and linked by project, author, tags, and shared-tag relatedness.
+
+- **Interactive**: scroll to zoom, drag to pan, click a node to focus its neighborhood and open a detail drawer; hover for a tooltip.
+- **Filters + search** by node type (memory / project / agent / tag).
+- **Live**: new memories pulse into the graph over the realtime stream.
+- **Analytics strip**: source-coverage gauge, agent-contribution and category charts, tag cloud, and a recent-memory feed.
+- Works instantly on your existing `~/.shadow-brain/global.json` — no project analysis or setup step.
+
+Several previously sparse tabs were also rebuilt with real visualizations: **Pre-Mortem** (risk matrix + failure cards), **Attention** (weighted heat bars), **Calibration** (Brier/trust chart), **Reputation** (trust rings), **Causal Chains** (node-link DAG), and **Branch Brains** (stat cards).
+
+Constellation API:
+
+```text
+GET /api/v6/memory-graph
+```
+
 
 Memory seeding API:
 

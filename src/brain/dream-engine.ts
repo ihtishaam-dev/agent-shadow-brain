@@ -27,6 +27,7 @@ import { getLocalLLM, LocalLLM } from './local-llm.js';
 import { getModelRegistry } from './model-registry.js';
 import { getPromptCache } from './prompt-cache.js';
 import { generateJson, z } from './json-output.js';
+import { getBrainBus } from './brain-bus.js';
 
 const DREAMS_PATH = path.join(os.homedir(), '.shadow-brain', 'dreams.json');
 
@@ -148,6 +149,16 @@ export class DreamEngine {
         const n = this.stats.totalDreams;
         this.stats.avgConfidence = this.stats.avgConfidence + (dream.confidence - this.stats.avgConfidence) / n;
         newDreams.push(dream);
+        try {
+          getBrainBus().publish({
+            id: `dream:${dream.id}`,
+            ts: dream.generatedAt instanceof Date ? dream.generatedAt.getTime() : Date.now(),
+            type: 'dream',
+            source: 'dream-engine',
+            detail: `[${dream.type}] ${String(dream.content).slice(0, 220)}`,
+            meta: { dreamType: dream.type, confidence: dream.confidence, actionable: dream.actOnNextSession },
+          });
+        } catch { /* bus failures never break a dream cycle */ }
       }
     }
 
