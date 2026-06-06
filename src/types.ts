@@ -1439,6 +1439,39 @@ export interface GlobalEntry {
   metadata: Record<string, unknown>;
 }
 
+/**
+ * Confidence breakdown for a recalled memory (v6.3.0).
+ *
+ * Not all memories are equally reliable. `global_recall` can attach a
+ * confidence score so the consuming agent can weight memories by recency,
+ * author-assigned importance, cross-agent corroboration, prior usage, and
+ * keyword relevance instead of treating every hit as equally trustworthy.
+ */
+export interface RecallConfidence {
+  /** Final blended confidence in [0,1]. */
+  score: number;
+  /** Bucketed label: high >= 0.66, medium >= 0.33, else low. */
+  level: 'high' | 'medium' | 'low';
+  /** Normalized [0,1] component signals so consumers can re-weight if desired. */
+  signals: {
+    /** Keyword match strength (0.5 baseline when no keywords supplied). */
+    relevance: number;
+    /** Recency of last access — exponential decay with a ~30-day half-life. */
+    recency: number;
+    /** Author-assigned importance. */
+    importance: number;
+    /** Cross-agent agreement — distinct agents corroborating this category. */
+    corroboration: number;
+    /** How often this memory has been recalled before. */
+    usage: number;
+  };
+}
+
+/** A recalled entry enriched with a confidence score (v6.3.0). */
+export interface ScoredGlobalEntry extends GlobalEntry {
+  confidence: RecallConfidence;
+}
+
 // Subconscious Engine — proactive context injection on session start
 export interface SubconsciousConfig {
   /** Enable proactive context injection */

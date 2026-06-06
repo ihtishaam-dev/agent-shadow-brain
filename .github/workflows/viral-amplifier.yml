@@ -103,7 +103,10 @@ jobs:
 
   milestone-check:
     needs: guard
-    if: needs.guard.outputs.is_public == 'true' && (github.event_name == 'schedule' || github.event.inputs.job == 'milestone-check' || github.event.inputs.job == 'all')
+    # Only the daily 14:00 cron triggers milestones. Previously this matched ANY
+    # schedule (incl. the every-6h trending cron + Sunday weekly), re-firing the
+    # same milestone up to 5x/day and flooding the issue tracker.
+    if: needs.guard.outputs.is_public == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '0 14 * * *') || github.event.inputs.job == 'milestone-check' || github.event.inputs.job == 'all')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -230,7 +233,9 @@ jobs:
 
   welcome-new-issue:
     needs: guard
-    if: needs.guard.outputs.is_public == 'true' && github.event_name == 'issues' && github.event.action == 'opened'
+    # Never react to the bot's own issues (milestone/spike) or any bot author -
+    # that turned every auto-generated issue into another triage+comment cycle.
+    if: needs.guard.outputs.is_public == 'true' && github.event_name == 'issues' && github.event.action == 'opened' && github.event.issue.user.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,18 +1,26 @@
 #!/usr/bin/env node
-// Trending Detector — runs every 6 hours, looks at the stats history,
-// detects momentum spikes (stars/day acceleration), and opens an issue
-// suggesting time-sensitive actions.
-//
-// Why hourly-ish: viral spikes have a 24-48h window. Catching them within
-// 6h means you can pile on while the iron is hot (cross-link, share, etc).
+// Trending Detector — runs on a schedule, looks at the stats history, detects
+// momentum spikes (stars/day acceleration), and opens an issue suggesting
+// time-sensitive actions.
 //
 // Detection logic:
 //   - Compare last-24h star delta vs trailing 7-day average
 //   - Spike threshold: 5x baseline OR 50+ stars in 24h (whichever lower)
 //   - Cooldown: only fires once per 24h to avoid duplicate issues
+//
+// Spam-safety (root-cause fix):
+//   The previous version trusted ONLY a local state file
+//   (.github/.trending-state.json) for the 24h cooldown. The workflow never
+//   committed that file, so each fresh checkout reset lastFiredAt to 0 and the
+//   cooldown never applied — every run could open another spike issue.
+//
+//   GitHub is now the source of truth: before posting we check for an OPEN spike
+//   issue created within the cooldown window. If one exists, we skip.
 
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const REPO = process.env.REPO || 'theihtisham/agent-shadow-brain';
 const HISTORY_PATH = 'docs/stats-history.json';
@@ -20,6 +28,11 @@ const STATE_PATH = '.github/.trending-state.json';
 const SPIKE_MULT = 5;       // 5x trailing-7d average
 const SPIKE_FLOOR = 50;     // OR 50+ stars in 24h
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const TITLE = '🚀 Momentum spike detected — act fast';
+
+function sh(cmd) {
+  return execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+}
 
 let history = [];
 if (existsSync(HISTORY_PATH)) {
@@ -45,7 +58,6 @@ const trailingAvgDelta = week.length > 0
 
 const downloadsToday = today.npm?.last_week ?? 0;
 const downloadsYesterday = yesterday.npm?.last_week ?? 0;
-const dlDelta = downloadsToday - downloadsYesterday;
 
 console.log(`Today: ${todayStars} stars (Δ ${dayDelta}), 7d avg Δ ${trailingAvgDelta.toFixed(1)}`);
 
@@ -57,13 +69,35 @@ if (!isStarsSpike && !isDownloadsSpike) {
   process.exit(0);
 }
 
-// Cooldown check
+// ── Cooldown via local cache (fast path) ────────────────────────────────────
 let state = { lastFiredAt: 0 };
 if (existsSync(STATE_PATH)) {
   try { state = JSON.parse(readFileSync(STATE_PATH, 'utf-8')); } catch {}
 }
 if (Date.now() - state.lastFiredAt < COOLDOWN_MS) {
-  console.log(`Cooldown active. Last fired ${((Date.now() - state.lastFiredAt) / 3600e3).toFixed(1)}h ago.`);
+  console.log(`Cooldown active (local cache). Last fired ${((Date.now() - state.lastFiredAt) / 3600e3).toFixed(1)}h ago.`);
+  process.exit(0);
+}
+
+// ── Cooldown via GitHub (source of truth) ───────────────────────────────────
+// The local cache is unreliable across fresh checkouts, so confirm against the
+// repo: is there an OPEN spike issue created within the cooldown window?
+function recentSpikeIssueExists() {
+  try {
+    const raw = sh(
+      `gh issue list --repo "${REPO}" --state open --search ${JSON.stringify(`"${TITLE}" in:title`)} --json createdAt --limit 20`,
+    );
+    const items = JSON.parse(raw);
+    return items.some((i) => Date.now() - new Date(i.createdAt).getTime() < COOLDOWN_MS);
+  } catch (err) {
+    // Lookup failed — stay spam-safe and skip rather than risk a duplicate.
+    console.warn(`Could not verify recent spike issues (${err.message?.split('\n')[0]}). Skipping to stay spam-safe.`);
+    return true;
+  }
+}
+
+if (recentSpikeIssueExists()) {
+  console.log('A spike issue was already opened within the cooldown window — skipping (idempotent).');
   process.exit(0);
 }
 
@@ -76,14 +110,6 @@ if (isDownloadsSpike) {
   reasons.push(`📦 **Downloads spike**: ${downloadsToday} weekly downloads (vs ${downloadsYesterday} yesterday) — ${(downloadsToday / Math.max(1, downloadsYesterday)).toFixed(1)}x growth`);
 }
 
-// Where might it be coming from?
-let referrers = [];
-try {
-  // GitHub doesn't expose referrer data via REST API for non-owners.
-  // The owner can check manually at /graphs/traffic
-  referrers = ['(GitHub Insights traffic data is owner-only — check manually at https://github.com/' + REPO + '/graphs/traffic)'];
-} catch {}
-
 const body = `# 🚀 Momentum Spike Detected
 
 **Repo:** ${REPO}
@@ -91,19 +117,19 @@ const body = `# 🚀 Momentum Spike Detected
 
 ## What's Happening
 
-${reasons.map(r => `- ${r}`).join('\n')}
+${reasons.map((r) => `- ${r}`).join('\n')}
 
 ## Time-Sensitive Actions (next 24-48h)
 
-Viral spikes have a short window. Act FAST while the iron is hot:
+Viral spikes have a short window. Act fast while the iron is hot:
 
 ### Within 1 hour
 - [ ] Check [GitHub Insights → Traffic](https://github.com/${REPO}/graphs/traffic) — find the referrer source
 - [ ] If a specific blog/HN/Reddit thread is driving it → reply/comment there to keep momentum
-- [ ] Pin a relevant tweet/post if you have one queued
+- [ ] Pin a relevant post if you have one queued
 
 ### Within 24 hours
-- [ ] Reply to ANY new issue/PR within 1 hour (engagement keeps you on trending lists)
+- [ ] Reply to ANY new issue/PR quickly (engagement keeps you on trending lists)
 - [ ] Share to relevant communities you're already part of (your call where)
 - [ ] If npm package: confirm latest version is solid (no broken builds, no critical bugs)
 
@@ -114,10 +140,10 @@ Viral spikes have a short window. Act FAST while the iron is hot:
 
 ## Don't Do
 
-- ❌ Buy stars (illegal, GitHub bans for it)
+- ❌ Buy stars (against GitHub ToS — they ban for it)
 - ❌ Spam-DM stargazers thanking them (looks weird)
 - ❌ Mass-tag people in posts (filters as spam)
-- ❌ Resurrect stale issues just to ping for engagement (transparent and annoying)
+- ❌ Resurrect stale issues just to ping for engagement
 
 ## Stats Snapshot
 
@@ -128,16 +154,13 @@ Viral spikes have a short window. Act FAST while the iron is hot:
 
 ---
 
-_Auto-generated by the Trending Detector. Cooldown of 24h applied — won't open another spike issue until ${new Date(Date.now() + COOLDOWN_MS).toISOString()}._
+_Auto-generated by the Trending Detector. 24h cooldown is enforced against GitHub (open spike issues), not just a local cache._
 `;
 
-const tmpFile = '/tmp/trending-body.md';
+const tmpFile = join(tmpdir(), 'trending-body.md');
 writeFileSync(tmpFile, body);
 
 // Defensive: ensure expected labels exist, then create issue.
-// If labels are missing AND we can't create them (e.g. fork without write
-// scope on labels), fall back to creating the issue with no labels rather
-// than crashing the whole workflow.
 const WANTED_LABELS = ['viral-amplifier', 'trending'];
 const labelDefs = {
   'viral-amplifier': { color: 'FF4081', description: 'Issues raised by the Viral Amplifier Bot' },
@@ -146,13 +169,13 @@ const labelDefs = {
 
 function ensureLabel(name) {
   try {
-    execSync(`gh label view "${name}" --repo "${REPO}"`, { stdio: 'pipe' });
+    sh(`gh label view "${name}" --repo "${REPO}"`);
     return true;
   } catch {
     const def = labelDefs[name];
     if (!def) return false;
     try {
-      execSync(`gh label create "${name}" --color "${def.color}" --description "${def.description}" --repo "${REPO}"`, { stdio: 'pipe' });
+      sh(`gh label create "${name}" --color "${def.color}" --description "${def.description}" --repo "${REPO}"`);
       console.log(`  ✓ created missing label: ${name}`);
       return true;
     } catch (err) {
@@ -166,13 +189,12 @@ const availableLabels = WANTED_LABELS.filter(ensureLabel);
 const labelArg = availableLabels.length ? ` --label "${availableLabels.join(',')}"` : '';
 
 try {
-  execSync(`gh issue create --title "🚀 Momentum spike detected — act fast" --body-file "${tmpFile}"${labelArg}`, { stdio: 'inherit' });
+  execSync(`gh issue create --repo "${REPO}" --title "${TITLE}" --body-file "${tmpFile}"${labelArg}`, { stdio: 'inherit' });
 } catch (e) {
-  // Retry without labels in case the labelArg is the cause
   if (labelArg) {
     console.warn('Issue create failed with labels — retrying without labels.');
     try {
-      execSync(`gh issue create --title "🚀 Momentum spike detected — act fast" --body-file "${tmpFile}"`, { stdio: 'inherit' });
+      execSync(`gh issue create --repo "${REPO}" --title "${TITLE}" --body-file "${tmpFile}"`, { stdio: 'inherit' });
     } catch (e2) {
       console.error('Could not create issue (even without labels):', e2.message);
       process.exit(1);

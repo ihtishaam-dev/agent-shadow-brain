@@ -50,6 +50,7 @@ export class MCPServer {
       // v5.2.0 — Subconscious Singularity
       subconscious_inject: this.handleSubconsciousInject.bind(this),
       global_recall: this.handleGlobalRecall.bind(this),
+      global_recall_scored: this.handleGlobalRecallScored.bind(this),
       global_stats: this.handleGlobalStats.bind(this),
       attach_status: this.handleAttachStatus.bind(this),
       global_timeline: this.handleGlobalTimeline.bind(this),
@@ -382,6 +383,21 @@ export class MCPServer {
       keywords: params.keywords as string[] | undefined,
       limit: (params.limit as number) ?? 20,
       minImportance: params.minImportance as number | undefined,
+    });
+  }
+
+  private async handleGlobalRecallScored(params: Record<string, unknown>): Promise<unknown> {
+    const { getGlobalBrain } = await import('./global-brain.js');
+    const brain = getGlobalBrain();
+    await brain.init();
+    return brain.recallScored({
+      projectId: params.projectId as string | undefined,
+      agentTool: params.agentTool as any,
+      category: params.category as string | undefined,
+      keywords: params.keywords as string[] | undefined,
+      limit: (params.limit as number) ?? 20,
+      minImportance: params.minImportance as number | undefined,
+      minConfidence: params.minConfidence as number | undefined,
     });
   }
 
@@ -1210,6 +1226,22 @@ export class MCPServer {
             keywords: { type: 'array', items: { type: 'string' } },
             limit: { type: 'number' },
             minImportance: { type: 'number' },
+          },
+        },
+      },
+      {
+        name: 'global_recall_scored',
+        description: 'Recall from the global brain with a per-memory confidence score (recency, importance, cross-agent corroboration, usage, relevance). Results are ranked by confidence. (v6.3.0)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectId: { type: 'string' },
+            agentTool: { type: 'string' },
+            category: { type: 'string' },
+            keywords: { type: 'array', items: { type: 'string' } },
+            limit: { type: 'number' },
+            minImportance: { type: 'number' },
+            minConfidence: { type: 'number', description: 'Drop results below this blended confidence (0-1).' },
           },
         },
       },

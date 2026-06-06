@@ -8,7 +8,7 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
 <meta name="color-scheme" content="dark light">
-<title>Shadow Brain v6.2 — Hive Mind Control</title>
+<title>Shadow Brain v6.3 — Hive Mind Control</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230a0e1a'/><path d='M50 50 L24 30 M50 50 L76 30 M50 50 L24 70 M50 50 L76 70' stroke='%23ffffff' stroke-opacity='0.28' stroke-width='3'/><circle cx='50' cy='50' r='12' fill='%2318ffff'/><circle cx='24' cy='30' r='7' fill='%2310e68c'/><circle cx='76' cy='30' r='7' fill='%23ffb53f'/><circle cx='24' cy='70' r='7' fill='%23a855f7'/><circle cx='76' cy='70' r='7' fill='%23ec4899'/></svg>">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
@@ -1072,7 +1072,7 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
   </div>
 
   <div class="brand">
-    <div class="name">Shadow Brain <span style="color:var(--text-3);font-size:10px;font-weight:600">v6.2 Hive Mind</span></div>
+    <div class="name">Shadow Brain <span style="color:var(--text-3);font-size:10px;font-weight:600">v6.3 Hive Mind</span></div>
     <div class="state" id="brain-state">learning · reflecting · charging</div>
   </div>
 
@@ -2519,7 +2519,11 @@ async function refreshWW2BR() {
 function renderMemoryItems(items, emptyMessage) {
   if (!items || !items.length) return '<div class="empty-tight">' + htmlEscape(emptyMessage) + '</div>';
   return items.map(item => {
-    const confidence = item.importance !== undefined ? Math.round((item.importance || 0) * 100) + '%' : '';
+    const importancePct = item.importance !== undefined ? Math.round((item.importance || 0) * 100) + '%' : '';
+    // v6.3.0: real blended recall confidence (recency + importance + corroboration + usage + relevance).
+    const conf = item.confidence && typeof item.confidence.score === 'number' ? item.confidence : null;
+    const confCls = conf ? (conf.level === 'high' ? 'green' : conf.level === 'medium' ? 'yellow' : 'red') : '';
+    const confBadge = conf ? '<span class="pill ' + confCls + '" title="Recall confidence ' + Math.round(conf.score * 100) + '% (' + htmlEscape(conf.level) + ') | relevance ' + conf.signals.relevance + ', recency ' + conf.signals.recency + ', importance ' + conf.signals.importance + ', corroboration ' + conf.signals.corroboration + ', usage ' + conf.signals.usage + '">\u2737 ' + Math.round(conf.score * 100) + '%</span>' : '';
     const sources = item.sources || (item.metadata && item.metadata.sources) || [];
     const tags = item.tags || (item.metadata && item.metadata.tags) || [];
     const quality = item.qualityScore !== undefined ? '<span class="pill">Q ' + htmlEscape(item.qualityScore) + '</span>' : '';
@@ -2531,7 +2535,8 @@ function renderMemoryItems(items, emptyMessage) {
       '<div class="meta">' +
         '<span class="pill cyan">' + htmlEscape(item.agentTool || item.agent || 'brain') + '</span>' +
         '<span class="pill">' + htmlEscape(item.category || 'memory') + '</span>' +
-        (confidence ? '<span class="pill green">' + confidence + '</span>' : '') +
+        confBadge +
+        (importancePct ? '<span class="pill" title="Author-assigned importance">imp ' + importancePct + '</span>' : '') +
         quality +
         tagLine +
         '<span>' + fmtDate(item.createdAt || item.lastAccessed) + '</span>' +
