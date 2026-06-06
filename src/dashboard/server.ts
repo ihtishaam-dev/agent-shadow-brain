@@ -702,8 +702,8 @@ export class DashboardServer {
           minImportance: Number(qs.get('minImportance') ?? body.minImportance ?? 0),
           limit: Number(qs.get('limit') ?? body.limit ?? 12),
         };
-        const projectResults = brain.recall({ projectId, ...common });
-        const results = projectResults.length ? projectResults : brain.recall(common);
+        const projectResults = brain.recallScored({ projectId, ...common });
+        const results = projectResults.length ? projectResults : brain.recallScored(common);
         return send({
           projectDir,
           projectScoped: projectResults.length > 0,

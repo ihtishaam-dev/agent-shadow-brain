@@ -13,7 +13,7 @@ import { BaseAdapter } from './adapters/base-adapter.js';
 import { BrainConfig, BrainInsight, AgentTool, BrainPersonality, LLMProvider } from './types.js';
 import { checkForUpdate, formatUpdateNotice } from './brain/auto-update.js';
 
-const VERSION = '6.2.0';
+const VERSION = '6.3.0';
 
 const config: any = new Conf({
   projectName: 'shadow-brain',

@@ -1,5 +1,24 @@
 # Changelog
 
+## [6.3.0] - 2026-06-06 - Recall Confidence + Issue-Bot Spam Fix
+
+This release adds per-memory recall confidence scoring and fixes a GitHub Actions
+issue-bot that was opening duplicate milestone/spike issues.
+
+### Added
+
+- `GlobalBrain.recallScored()`: recall enriched with a blended `RecallConfidence` per entry. Signals: keyword relevance, recency (30-day half-life decay), author-assigned importance, cross-agent corroboration, and prior usage. Results are ranked by confidence and support a `minConfidence` floor.
+- `RecallConfidence` and `ScoredGlobalEntry` types in `src/types.ts`.
+- MCP tool `global_recall_scored` exposing scored recall to compatible clients.
+- Dashboard recall results now show a color-coded confidence badge (high/medium/low) with a per-signal breakdown on hover; the `/api/v6/ww2br-recall` endpoint now returns scored results.
+- Focused tests in `tests/brain/global-recall-confidence.test.ts` for scoring, importance ranking, cross-agent corroboration, and `minConfidence` filtering.
+
+### Fixed
+
+- Viral Amplifier bot opened dozens of duplicate `Milestone — 25 stars` and `Momentum spike` issues. Root causes: (1) the milestone job ran on every cron schedule (including the every-6h trending cron) instead of only the daily run, and (2) both scripts trusted local state files (`.github/.milestone-state.json`, `.github/.trending-state.json`) that the workflow never committed, so each fresh checkout reset state and re-fired.
+- `milestone-notifier.mjs` and `trending-detector.mjs` are now idempotent: they verify against GitHub (open/closed issues for milestones, open issues within the 24h window for spikes) before posting, and treat lookup failures as "skip" to stay spam-safe.
+- `viral-amplifier.yml`: milestone job restricted to the daily 14:00 UTC cron; `welcome-new-issue` now ignores bot-authored issues so the bot no longer triages its own issues.
+
 ## [6.0.3] - 2026-06-03 - Live Brain Release
 
 This release makes Shadow Brain more realistic and more useful for complex agent work. It focuses on source-backed long memory, live memory health, recall evals, agent briefings, and release-ready docs.

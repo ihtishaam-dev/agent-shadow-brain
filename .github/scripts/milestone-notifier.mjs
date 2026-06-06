@@ -1,19 +1,38 @@
 #!/usr/bin/env node
-// Milestone notifier — opens a celebration issue with action checklist
-// when star milestones hit. NO social media integration.
-// All output is in your own repo (issue) — you decide where else to share.
+// Milestone notifier — opens ONE celebration issue per star milestone.
+// NO social media integration. All output is in your own repo (an issue) —
+// you decide where else to share.
+//
+// Spam-safety (root-cause fix):
+//   The previous version trusted a local state file (.github/.milestone-state.json)
+//   that the workflow never committed. Every scheduled run started from a fresh
+//   checkout, the state reset to 0, and the milestone re-fired — producing dozens
+//   of duplicate "Milestone — 25 stars" issues.
+//
+//   GitHub itself is now the source of truth: before creating an issue we search
+//   open AND closed issues for the exact milestone title. If one exists we skip.
+//   The local state file is still written as a best-effort fast-path cache, but it
+//   is never the sole guard.
 
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const REPO = process.env.REPO || 'theihtisham/agent-shadow-brain';
 const STATE_PATH = '.github/.milestone-state.json';
 const MILESTONES = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000];
 
+function sh(cmd) {
+  return execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+}
+
 const stars = (() => {
   try {
-    return JSON.parse(execSync(`gh api repos/${REPO} --jq '.stargazers_count'`, { encoding: 'utf-8' }));
-  } catch { return 0; }
+    return JSON.parse(sh(`gh api repos/${REPO} --jq '.stargazers_count'`));
+  } catch {
+    return 0;
+  }
 })();
 
 let state = { lastMilestone: 0 };
@@ -21,17 +40,48 @@ if (existsSync(STATE_PATH)) {
   try { state = JSON.parse(readFileSync(STATE_PATH, 'utf-8')); } catch {}
 }
 
-const newest = MILESTONES.filter(m => m <= stars && m > state.lastMilestone).pop();
+const newest = MILESTONES.filter((m) => m <= stars && m > state.lastMilestone).pop();
 if (!newest) {
-  console.log(`No new milestone. Stars: ${stars}, last fired: ${state.lastMilestone}`);
+  console.log(`No new milestone. Stars: ${stars}, last fired (local cache): ${state.lastMilestone}`);
   process.exit(0);
 }
 
-// Recent stargazers — for thank-you outreach (within rate limits)
+const TITLE = `🎉 Milestone — ${newest.toLocaleString()} stars`;
+
+// ── Source of truth: has this milestone issue already been opened? ──────────
+// Search BOTH open and closed so closing the issue doesn't re-trigger it.
+function milestoneIssueExists(title) {
+  try {
+    const raw = sh(
+      `gh issue list --repo "${REPO}" --state all --search ${JSON.stringify(`"${title}" in:title`)} --json title --limit 50`,
+    );
+    const items = JSON.parse(raw);
+    return items.some((i) => i.title === title);
+  } catch (err) {
+    // If the lookup fails we must NOT fall back to "create anyway" — that is the
+    // exact behaviour that caused the spam. Treat lookup failure as "exists" so
+    // we skip rather than risk a duplicate.
+    console.warn(`Could not verify existing milestone issues (${err.message?.split('\n')[0]}). Skipping to stay spam-safe.`);
+    return true;
+  }
+}
+
+if (milestoneIssueExists(TITLE)) {
+  console.log(`Milestone issue "${TITLE}" already exists on GitHub — skipping (idempotent).`);
+  // Keep the local cache in sync so future runs short-circuit faster.
+  state.lastMilestone = newest;
+  state.firedAt = new Date().toISOString();
+  mkdirSync('.github', { recursive: true });
+  writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
+  process.exit(0);
+}
+
+// Recent stargazers — for optional thank-you outreach (within rate limits).
 let topStargazers = [];
 try {
-  const recent = JSON.parse(execSync(`gh api 'repos/${REPO}/stargazers?per_page=10&sort=created&direction=desc' --jq '[.[] | .login]'`, { encoding: 'utf-8' }));
-  topStargazers = recent;
+  topStargazers = JSON.parse(
+    sh(`gh api 'repos/${REPO}/stargazers?per_page=10&sort=created&direction=desc' --jq '[.[] | .login]'`),
+  );
 } catch { /* skip */ }
 
 const body = `# 🎉 Milestone Reached: ${newest.toLocaleString()} Stars
@@ -44,7 +94,7 @@ const body = `# 🎉 Milestone Reached: ${newest.toLocaleString()} Stars
 
 ### Immediate (next 24h)
 
-- [ ] Manually share the milestone wherever you want (you said you only have 2 repos to promote, so post wherever feels right)
+- [ ] Manually share the milestone wherever you want
 - [ ] Update README hero — current star count is now visible social proof
 - [ ] Thank the most recent 10 stargazers individually if any are notable accounts
 
@@ -66,7 +116,7 @@ ${topStargazers.length === 0 ? '_Could not fetch stargazer list._' : topStargaze
 
 ---
 
-_Auto-generated by the Viral Amplifier Bot. No actions taken on your behalf — all suggestions require your manual approval._
+_Auto-generated by the Viral Amplifier Bot. One issue per milestone — verified against GitHub before posting. No actions taken on your behalf._
 `;
 
 // Defensive label handling — auto-create missing labels, fall back to no-label on failure.
@@ -76,12 +126,12 @@ const labelDefs = {
   'milestone':       { color: '8B5CF6', description: 'Milestone achievement notification' },
 };
 function ensureLabel(name) {
-  try { execSync(`gh label view "${name}" --repo "${REPO}"`, { stdio: 'pipe' }); return true; }
+  try { sh(`gh label view "${name}" --repo "${REPO}"`); return true; }
   catch {
     const def = labelDefs[name];
     if (!def) return false;
     try {
-      execSync(`gh label create "${name}" --color "${def.color}" --description "${def.description}" --repo "${REPO}"`, { stdio: 'pipe' });
+      sh(`gh label create "${name}" --color "${def.color}" --description "${def.description}" --repo "${REPO}"`);
       return true;
     } catch { return false; }
   }
@@ -89,11 +139,12 @@ function ensureLabel(name) {
 const availableLabels = WANTED_LABELS.filter(ensureLabel);
 const labelArg = availableLabels.length ? ` --label "${availableLabels.join(',')}"` : '';
 
-const tmpFile = '/tmp/milestone-body.md';
+const tmpFile = join(tmpdir(), 'milestone-body.md');
 writeFileSync(tmpFile, body);
+
 function createIssue(withLabels) {
   const arg = withLabels ? labelArg : '';
-  execSync(`gh issue create --title "🎉 Milestone — ${newest.toLocaleString()} stars" --body-file "${tmpFile}"${arg}`, { stdio: 'inherit' });
+  execSync(`gh issue create --repo "${REPO}" --title "${TITLE}" --body-file "${tmpFile}"${arg}`, { stdio: 'inherit' });
 }
 try {
   createIssue(true);
@@ -101,13 +152,15 @@ try {
   if (labelArg) {
     console.warn('Milestone issue create failed with labels — retrying without.');
     try { createIssue(false); }
-    catch (e2) { console.error('Could not open milestone issue (even without labels):', e2.message); }
+    catch (e2) { console.error('Could not open milestone issue (even without labels):', e2.message); process.exit(1); }
   } else {
     console.error('Could not open milestone issue:', e.message);
+    process.exit(1);
   }
 }
 
 state.lastMilestone = newest;
 state.firedAt = new Date().toISOString();
+mkdirSync('.github', { recursive: true });
 writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
 console.log(`Milestone fired: ${newest}`);

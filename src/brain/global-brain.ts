@@ -22,6 +22,8 @@ import {
   GlobalBrainStats,
   GlobalEntry,
   BrainTimelineEvent,
+  RecallConfidence,
+  ScoredGlobalEntry,
 } from '../types.js';
 import { getBrainBus } from './brain-bus.js';
 
@@ -283,6 +285,119 @@ export class GlobalBrain {
     return result;
   }
 
+  /**
+   * Recall entries with a per-entry confidence score (v6.3.0).
+   *
+   * Same matching as recall(), but each result carries a RecallConfidence so
+   * the consuming agent can weight memories by recency, author importance,
+   * cross-agent corroboration, prior usage, and keyword relevance rather than
+   * trusting every hit equally. Ordering switches from raw keyword score to
+   * blended confidence so the most trustworthy memories surface first.
+   */
+  recallScored(opts: {
+    projectId?: string;
+    agentTool?: AgentTool;
+    category?: string;
+    keywords?: string[];
+    limit?: number;
+    minImportance?: number;
+    minConfidence?: number;
+  } = {}): ScoredGlobalEntry[] {
+    if (!this.initialized) return [];
+
+    const limit = opts.limit ?? 20;
+    const minConfidence = opts.minConfidence ?? 0;
+    // Pull a wider candidate pool (pre-confidence) so confidence re-ranking has
+    // room to promote highly-trusted-but-lower-keyword-score memories.
+    const candidates = this.recall({
+      projectId: opts.projectId,
+      agentTool: opts.agentTool,
+      category: opts.category,
+      keywords: opts.keywords,
+      limit: Math.max(limit * 3, 60),
+      minImportance: opts.minImportance,
+    });
+
+    // Corroboration baseline: distinct agents that have written in each category.
+    const agentsPerCategory = new Map<string, Set<AgentTool>>();
+    for (const e of this.entries.values()) {
+      let set = agentsPerCategory.get(e.category);
+      if (!set) { set = new Set(); agentsPerCategory.set(e.category, set); }
+      set.add(e.agentTool);
+    }
+
+    const hasKeywords = (opts.keywords?.filter(k => k && k.trim().length > 2).length ?? 0) > 0;
+    const now = Date.now();
+
+    const scored = candidates
+      .map(entry => ({
+        ...entry,
+        confidence: this.computeConfidence(entry, {
+          hasKeywords,
+          now,
+          distinctAgentsInCategory: agentsPerCategory.get(entry.category)?.size ?? 1,
+        }),
+      }))
+      .filter(e => e.confidence.score >= minConfidence);
+
+    scored.sort((a, b) => b.confidence.score - a.confidence.score);
+    return scored.slice(0, limit);
+  }
+
+  /** Blend recall signals into a single confidence score in [0,1]. */
+  private computeConfidence(
+    entry: GlobalEntry,
+    ctx: { hasKeywords: boolean; now: number; distinctAgentsInCategory: number },
+  ): RecallConfidence {
+    const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
+
+    // Relevance: when the caller supplied keywords, a match means relevance is
+    // high; without keywords we cannot judge relevance, so use a neutral 0.5.
+    const relevance = ctx.hasKeywords ? 0.9 : 0.5;
+
+    // Recency: exponential decay with a 30-day half-life on last access.
+    const HALF_LIFE_MS = 30 * 24 * 60 * 60 * 1000;
+    const lastAccess = entry.lastAccessed instanceof Date
+      ? entry.lastAccessed.getTime()
+      : new Date(entry.lastAccessed).getTime();
+    const ageMs = Math.max(0, ctx.now - lastAccess);
+    const recency = clamp01(Math.pow(0.5, ageMs / HALF_LIFE_MS));
+
+    // Importance: author-assigned, already in [0,1] by convention.
+    const importance = clamp01(entry.importance);
+
+    // Corroboration: more distinct agents writing in this category => more
+    // cross-agent agreement. Saturates at 3 agents.
+    const corroboration = clamp01((ctx.distinctAgentsInCategory - 1) / 2);
+
+    // Usage: log-scaled prior recalls; saturates around ~20 accesses.
+    const usage = clamp01(Math.log10(entry.accessCount + 1) / Math.log10(21));
+
+    // Weighted blend. Relevance + importance dominate; recency/usage refine;
+    // corroboration is a smaller cross-agent trust nudge.
+    const score = clamp01(
+      relevance * 0.30 +
+      importance * 0.25 +
+      recency * 0.20 +
+      usage * 0.15 +
+      corroboration * 0.10,
+    );
+
+    const level: RecallConfidence['level'] = score >= 0.66 ? 'high' : score >= 0.33 ? 'medium' : 'low';
+
+    const round = (n: number) => Math.round(n * 1000) / 1000;
+    return {
+      score: round(score),
+      level,
+      signals: {
+        relevance: round(relevance),
+        recency: round(recency),
+        importance: round(importance),
+        corroboration: round(corroboration),
+        usage: round(usage),
+      },
+    };
+  }
   /** Bump access count for an entry */
   touch(id: string): void {
     const entry = this.entries.get(id);

@@ -2,7 +2,7 @@
 
 Local-first memory and coordination for AI coding agents.
 
-Version: 6.2.0
+Version: 6.3.0
 
 <p align="center">
   <img src="Banner.png" alt="Agent Shadow Brain shared local memory layer for AI agents" width="100%">
@@ -18,9 +18,12 @@ Agent Shadow Brain gives tools like Codex, Claude Code, Cursor, Cline, OpenCode,
 
 It does not change model weights by itself. It helps agents work better by giving them relevant, current, source-linked context before and during complex work.
 
-## What's New in 6.2.0
+## What's New in 6.3.0
 
-A major dashboard upgrade focused on clarity and visibility.
+Recall confidence scoring, plus the 6.2.0 dashboard upgrade for clarity and visibility.
+
+- **Recall confidence.** Every recalled memory now carries a blended confidence score (high/medium/low) so an agent can weight what it trusts. The score combines keyword relevance, recency (30-day half-life), author-assigned importance, cross-agent corroboration, and prior usage. Exposed via `GlobalBrain.recallScored()`, the `global_recall_scored` MCP tool, and a color-coded badge in the dashboard.
+- **Quieter automation.** Fixed a GitHub Actions bot that opened duplicate milestone/momentum issues; notifiers are now idempotent and verify against GitHub before posting.
 
 - **Simple by default, Advanced on demand.** The dashboard opens with eight plain-English tabs (Home, Brain Map, Memories, Ask the Brain, Activity, Connected Tools, Brain Health, Settings). Flip to Advanced to reveal every feature — nothing was removed, just tidied.
 - **Brain Map.** An interactive graph of everything the brain remembers — memories, projects, tools, and tags — sized by importance (PageRank) and linked by shared context. Zoom, pan, click a node for details, and watch it grow live as new memories arrive.
@@ -37,6 +40,9 @@ A major dashboard upgrade focused on clarity and visibility.
 </p>
 <p align="center">
   <img src="docs/screenshots/03-live-network.png" alt="Live Network — animated view of tools communicating with the brain" width="100%">
+</p>
+<p align="center">
+  <img src="docs/screenshots/04-recall-confidence.png" alt="Recall confidence - recalled memories ranked with color-coded high, medium, and low confidence badges" width="100%">
 </p>
 
 ## What It Actually Does
@@ -316,6 +322,10 @@ curl "http://127.0.0.1:7341/api/v6/live-brain?projectDir=C:/path/to/project"
 
 The MCP server exposes memory and agent-control tools for compatible clients.
 
+New in 6.3.0:
+
+- `global_recall_scored` — recall with a per-memory confidence score (recency, author importance, cross-agent corroboration, prior usage, keyword relevance). Results are ranked by confidence so agents can weight memories instead of trusting every hit equally. Supports `minConfidence` to drop low-trust hits.
+
 New in 6.0.3:
 
 - `live_brain_status`
@@ -325,6 +335,7 @@ New in 6.0.3:
 Existing useful tools include:
 
 - `global_recall`
+- `global_recall_scored`
 - `global_stats`
 - `global_timeline`
 - `subconscious_inject`

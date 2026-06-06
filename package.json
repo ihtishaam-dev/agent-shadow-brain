@@ -1,6 +1,6 @@
 {
   "name": "@theihtisham/agent-shadow-brain",
-  "version": "6.2.0",
+  "version": "6.3.0",
   "description": "Local-first memory and coordination layer for AI coding agents. Shadow Brain stores source-backed project lessons, recalls them across Codex, Claude Code, Cursor, Cline, OpenCode, and other tools, generates resume briefings, audits memory quality, exports training/eval JSONL, and exposes CLI/API/MCP surfaces with zero telemetry.",
   "main": "dist/index.js",
   "exports": {
