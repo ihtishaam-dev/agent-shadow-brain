@@ -22,7 +22,9 @@ let fixture: string;
 let projectDir: string;
 
 beforeEach(() => {
-  fixture = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'sb-workflow-'));
+  // Windows runners may expose an 8.3 TEMP alias; the installer returns native
+  // canonical paths, so use the same filesystem spelling for assertions.
+  fixture = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'sb-workflow-')));
   projectDir = path.join(fixture, 'project');
   fs.mkdirSync(projectDir);
 });
