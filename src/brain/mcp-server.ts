@@ -55,6 +55,8 @@ export class MCPServer {
       global_storage_health: this.handleGlobalStorageHealth.bind(this),
       workflow_analyze: this.handleWorkflowAnalyze.bind(this),
       workflow_skills: this.handleWorkflowSkills.bind(this),
+      context_pack: this.handleContextPack.bind(this),
+      feature_flags: this.handleFeatureFlags.bind(this),
       attach_status: this.handleAttachStatus.bind(this),
       global_timeline: this.handleGlobalTimeline.bind(this),
       firewall_check: this.handleFirewallCheck.bind(this),
@@ -342,7 +344,7 @@ export class MCPServer {
     const brain = getGlobalBrain();
     await Promise.all([sabb.init(), causal.init(), collisions.init(), dream.init(), rep.init(), tokens.init(), formal.init(), airgap.init(), brain.init()]);
     return {
-      version: '7.1.0',
+      version: '7.2.0',
       modules: {
         sabb: sabb.getStats(),
         causal: causal.stats(),
@@ -433,6 +435,30 @@ export class MCPServer {
     const { getBundledSkill, listBundledSkills } = await import('./workflow-skills.js');
     if (params.name !== undefined && typeof params.name !== 'string') throw new Error('name must be a bundled skill name.');
     return params.name === undefined ? listBundledSkills() : getBundledSkill(params.name as string);
+  }
+
+  private async handleContextPack(params: Record<string, unknown>): Promise<unknown> {
+    const { assembleContext } = await import('./context-assembly.js');
+    const { getFeatureSettings } = await import('./feature-settings.js');
+    const { getGlobalBrain } = await import('./global-brain.js');
+    if (typeof params.projectId !== 'string' || !params.projectId.trim()) throw new TypeError('A project ID is required.');
+    if (params.query !== undefined && typeof params.query !== 'string') throw new TypeError('Query must be text.');
+    if (params.tokenBudget !== undefined && (!Number.isSafeInteger(params.tokenBudget) || Number(params.tokenBudget) < 0 || Number(params.tokenBudget) > 12000)) throw new TypeError('Token budget must be an integer from 0 to 12000.');
+    if (params.includeCrossProject !== undefined && typeof params.includeCrossProject !== 'boolean') throw new TypeError('Cross-project choice must be boolean.');
+    const features = getFeatureSettings().get().features;
+    const brain = getGlobalBrain();
+    if (features.contextAssembly) {
+      await brain.init();
+      await brain.sync();
+      if (brain.getStorageHealth().lastError) throw new Error('Memory store is not readable. Check global_storage_health.');
+    }
+    return assembleContext(brain, { projectId: params.projectId, query: params.query as string | undefined,
+      tokenBudget: params.tokenBudget as number | undefined, includeCrossProject: params.includeCrossProject as boolean | undefined, features });
+  }
+
+  private async handleFeatureFlags(_params: Record<string, unknown>): Promise<unknown> {
+    const { getFeatureSettings, FEATURE_DEFINITIONS } = await import('./feature-settings.js');
+    return { ...getFeatureSettings().get(), definitions: FEATURE_DEFINITIONS };
   }
 
   private async handleAttachStatus(params: Record<string, unknown>): Promise<unknown> {
@@ -557,7 +583,7 @@ export class MCPServer {
         // Lightweight health endpoint for tool connectivity checks
         this.sendJSON(res, 200, {
           status: 'ok',
-          version: '7.1.0',
+          version: '7.2.0',
           uptime: process.uptime(),
           tools: Object.keys(this.toolHandlers).length,
         });
@@ -672,7 +698,7 @@ export class MCPServer {
       },
       serverInfo: {
         name: 'agent-shadow-brain',
-        version: '7.1.0',
+        version: '7.2.0',
         description: 'Cross-agent memory and safety layer for AI coding agents',
       },
     };
@@ -999,7 +1025,7 @@ export class MCPServer {
   private async handleStatus(params: Record<string, unknown>): Promise<unknown> {
     const status = this.orchestrator.getStatus?.() || {};
     return {
-      version: '7.1.0',
+      version: '7.2.0',
       ...status,
     };
   }
@@ -1028,7 +1054,7 @@ export class MCPServer {
       const instance = (this.orchestrator as Record<string, unknown>)[mod.key];
       modules.push({
         name: mod.name,
-        version: '7.1.0',
+        version: '7.2.0',
         status: instance ? 'active' : 'idle',
       });
     }
@@ -1295,6 +1321,19 @@ export class MCPServer {
         name: 'workflow_skills',
         description: 'List bundled workflow skills, or read one by name. Does not install skills or change client settings. (v7.1.0)',
         inputSchema: { type: 'object', properties: { name: { type: 'string' } }, additionalProperties: false },
+      },
+      {
+        name: 'context_pack',
+        description: 'Build a bounded reference context pack for a specified project and task, with provenance, selection reasons, and exclusions. Cross-project content requires both the persisted feature and an explicit request. No provider calls or source-file reads. Token counts are estimates. (v7.2.0)',
+        inputSchema: { type: 'object', required: ['projectId'], additionalProperties: false, properties: {
+          projectId: { type: 'string' }, query: { type: 'string' },
+          tokenBudget: { type: 'integer', minimum: 0, maximum: 12000 }, includeCrossProject: { type: 'boolean' },
+        } },
+      },
+      {
+        name: 'feature_flags',
+        description: 'Read the four persisted context, briefing, and dashboard activity controls. Does not modify settings or expose provider configuration. (v7.2.0)',
+        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
       },
       {
         name: 'attach_status',

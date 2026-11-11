@@ -1491,13 +1491,13 @@ export interface ScoredGlobalEntry extends GlobalEntry {
 export interface SubconsciousConfig {
   /** Enable proactive context injection */
   enabled: boolean;
-  /** Maximum tokens to inject per session (default 2000) */
+  /** Estimated token budget for the rendered briefing (default 2000). */
   tokenBudget: number;
   /** Lookback window in hours for recent context */
   lookbackHours: number;
   /** Minimum relevance score to include (0-1) */
   relevanceThreshold: number;
-  /** Categories to always include if available */
+  /** Categories eligible beyond the briefing lookback window. */
   alwaysInclude: string[];
   /** Inject for these agents (empty = all) */
   enabledAgents: AgentTool[];
@@ -1508,7 +1508,9 @@ export interface SubconsciousBriefing {
   projectDir: string;
   sessionId: string;
   generatedAt: Date;
+  /** Estimate based on the rendered character count. */
   tokenCount: number;
+  disabledReason?: 'configuration' | 'agent' | 'automaticBriefing' | 'contextAssembly';
   sections: {
     recentDecisions: string[];
     activeTasks: string[];

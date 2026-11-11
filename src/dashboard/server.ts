@@ -13,6 +13,9 @@ import { analyzeMemoryQuality, generateContextResumePack } from '../brain/contex
 import { getGlobalBrain, GlobalBrain } from '../brain/global-brain.js';
 import { getBrainBus, BrainActivityEvent } from '../brain/brain-bus.js';
 import { V6_DASHBOARD_HTML } from './v6-dashboard-html.js';
+import { WORKSPACE_HTML } from './workspace-html.js';
+import { handleWorkspaceRequest } from './workspace-api.js';
+import { getFeatureSettings } from '../brain/feature-settings.js';
 
 export interface DashboardOptions {
   port?: number;
@@ -547,8 +550,13 @@ export class DashboardServer {
       res.end(JSON.stringify(data, null, 2));
     };
 
-    if (url === '/' || url === '/index.html' || url === '/hive' || url === '/v6' || url === '/hive.html') {
-      // v6.0 Hive Mind dashboard is now the default at '/'
+    if (url === '/' || url === '/index.html' || url === '/workspace') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+      res.end(WORKSPACE_HTML);
+    } else if (url.startsWith('/api/workspace/')) {
+      void handleWorkspaceRequest(req, res);
+    } else if (url === '/advanced' || url === '/hive' || url === '/v6' || url === '/hive.html') {
+      // Existing advanced tools remain available with their original routes.
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
       res.end(V6_DASHBOARD_HTML);
     } else if (url === '/legacy' || url === '/v5' || url === '/legacy.html') {
@@ -621,7 +629,7 @@ export class DashboardServer {
         const tokenReport = await tokens.report();
         const runtime = this.getRuntimeContext();
         return send({
-          version: '7.1.0',
+          version: '7.2.0',
           localFirst: true,
           runtime,
           totalAgentsConnected: brain.getStats().totalAgents,
@@ -1051,6 +1059,7 @@ export class DashboardServer {
         catch (err: any) { return send({ error: err?.message ?? String(err) }, 500); }
       }
       case '/api/v6/activity-log': {
+        if (!this.liveActivityEnabled()) return send([]);
         const limit = parseInt(qs.get('limit') ?? '100', 10);
         const log = await this.collectActivityLog(limit);
         return send(log);
@@ -1772,13 +1781,22 @@ export class DashboardServer {
     });
   }
 
+  private liveActivityEnabled(): boolean {
+    try { return getFeatureSettings().isEnabled('liveActivity'); }
+    catch { return false; }
+  }
+
   private send(ws: WebSocket, data: object): void {
+    const kind = (data as { type?: string }).type;
+    if ((kind === 'activity' || kind === 'activity-backlog') && !this.liveActivityEnabled()) return;
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(data));
     }
   }
 
   private broadcast(data: object): void {
+    const kind = (data as { type?: string }).type;
+    if ((kind === 'activity' || kind === 'activity-backlog') && !this.liveActivityEnabled()) return;
     const msg = JSON.stringify(data);
     for (const client of this.clients) {
       if (client.readyState === WebSocket.OPEN) {
@@ -1791,7 +1809,9 @@ export class DashboardServer {
     return new Promise((resolve, reject) => {
       this.server.on('error', reject);
       this.server.listen(this.options.port, this.options.host, () => {
-        const url = `http://${this.options.host}:${this.options.port}`;
+        const address = this.server.address();
+        const port = address && typeof address !== 'string' ? address.port : this.options.port;
+        const url = `http://${this.options.host}:${port}`;
         resolve(url);
       });
     });
