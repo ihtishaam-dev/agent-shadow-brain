@@ -1,19 +1,21 @@
-# Agent Shadow Brain — Live Stats
+# Package and repository statistics
 
-_Auto-updated daily by the Viral Amplifier Bot. Last refresh: 2026-06-06._
+Last successful refresh: **2026-11-11T18:57:19.845Z**. Counts are snapshots from public npm and GitHub APIs.
 
-| Metric | Value | 7d Δ |
-|---|---:|---:|
-| ⭐ GitHub Stars | **33** | +2 |
-| 🍴 Forks | 6 | — |
-| 👀 Watchers | 4 | — |
-| 📬 Issues (open) | 15 | — |
-| 🔖 Releases | 4 | — |
-| 📦 npm — last 24h | 2 | — |
-| 📦 npm — last 7d | 16 | -23 |
-| 📦 npm — last 30d | 194 | — |
-| 📦 npm — total | 2,407 | — |
+| Metric | Count | Coverage |
+| --- | ---: | --- |
+| npm total downloads | **5,316** | 2026-04-10 through 2026-11-10, inclusive |
+| npm latest day | 2 | 2026-11-10 through 2026-11-10 |
+| npm last 7 days | 14 | 2026-11-04 through 2026-11-10 |
+| npm last 30 days | 205 | 2026-10-12 through 2026-11-10 |
+| GitHub stars | 0 | At refresh |
+| GitHub forks | 0 | At refresh |
+| GitHub watchers | 0 | At refresh |
 
-[![Star History Chart](https://api.star-history.com/svg?repos=theihtisham/agent-shadow-brain&type=Date)](https://star-history.com/#theihtisham/agent-shadow-brain&Date)
+The package was created on 2026-04-10. The total sums non-overlapping ranges of at most 365 days from creation through the latest complete day returned by npm. This handles the API's 18-month request limit without silently truncating lifetime counts. npm counts downloads, including automated installs; these are not unique people or active users.
 
-History: [`stats-history.json`](./stats-history.json) — full timeseries.
+The dedicated **README metrics** workflow refreshes this page and the total-download badge daily. A failed request preserves the last successful snapshot. Weekly and monthly README badges use Shields' live npm endpoints and may refresh at different times.
+
+[Raw snapshot and coverage](npm-metrics.json) · [npm download API documentation](https://github.com/npm/registry/blob/main/docs/download-counts.md) · [Package](https://www.npmjs.com/package/@theihtisham/agent-shadow-brain) · [Repository](https://github.com/ihtishaam-dev/agent-shadow-brain)
+
+Historical snapshots in [stats-history.json](stats-history.json) come from the previous monitoring implementation and are not used to calculate this total.
