@@ -13,8 +13,9 @@ import { BaseAdapter } from './adapters/base-adapter.js';
 import { BrainConfig, BrainInsight, AgentTool, BrainPersonality, LLMProvider } from './types.js';
 import { checkForUpdate, formatUpdateNotice } from './brain/auto-update.js';
 import { registerWorkflowCommands } from './workflow-cli.js';
+import { registerContextCommands } from './context-cli.js';
 
-const VERSION = '7.1.0';
+const VERSION = '7.2.0';
 
 // Defer config reads until a command actually needs provider settings.
 let savedConfig: Conf | undefined;
@@ -3205,7 +3206,7 @@ const subconsciousCmd = new Command('subconscious')
       if (opts.json) {
         console.log(JSON.stringify(briefing, null, 2));
       } else {
-        console.log(briefing.fullText || chalk.dim('(no relevant context yet — brain is empty)'));
+        console.log(briefing.fullText || chalk.dim(briefing.disabledReason ? `(Briefing disabled: ${briefing.disabledReason})` : '(No relevant context fits this task and budget.)'));
       }
     }))
   .addCommand(new Command('status')
@@ -5226,6 +5227,7 @@ const recallExplainCmd = new Command('recall-explain')
 program.addCommand(storageHealthCmd);
 program.addCommand(recallExplainCmd);
 registerWorkflowCommands(program);
+registerContextCommands(program);
 program.parseAsync().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : 'Command failed.');
   process.exitCode = 1;

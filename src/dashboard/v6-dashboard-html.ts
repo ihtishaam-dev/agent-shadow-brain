@@ -8,7 +8,7 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
 <meta name="color-scheme" content="dark light">
-<title>Shadow Brain v7.1 — Hive Mind Control</title>
+<title>Shadow Brain v7.2 — Hive Mind Control</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230a0e1a'/><path d='M50 50 L24 30 M50 50 L76 30 M50 50 L24 70 M50 50 L76 70' stroke='%23ffffff' stroke-opacity='0.28' stroke-width='3'/><circle cx='50' cy='50' r='12' fill='%2318ffff'/><circle cx='24' cy='30' r='7' fill='%2310e68c'/><circle cx='76' cy='30' r='7' fill='%23ffb53f'/><circle cx='24' cy='70' r='7' fill='%23a855f7'/><circle cx='76' cy='70' r='7' fill='%23ec4899'/></svg>">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
@@ -1072,7 +1072,7 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
   </div>
 
   <div class="brand">
-    <div class="name">Shadow Brain <span style="color:var(--text-3);font-size:10px;font-weight:600">v7.1 Hive Mind</span></div>
+    <div class="name">Shadow Brain <span style="color:var(--text-3);font-size:10px;font-weight:600">v7.2 Hive Mind</span></div>
     <div class="state" id="brain-state">learning · reflecting · charging</div>
   </div>
 
@@ -2093,7 +2093,7 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
     <!-- ════ FEATURE TOGGLES ═════════════════════════════════════════ -->
     <section class="section" id="tab-features">
       <div class="accent-bar"></div>
-      <div class="section-header"><div><h1 class="section-title">Feature Toggles</h1><div class="section-subtitle">Enable / disable any v6 module · persisted globally</div></div></div>
+      <div class="section-header"><div><h1 class="section-title">Feature controls</h1><div class="section-subtitle">Manage context, briefings, and the activity feed in the workspace.</div></div></div>
       <div class="card"><div class="feature-grid" id="feature-grid"></div></div>
     </section>
 
@@ -2520,7 +2520,7 @@ function renderMemoryItems(items, emptyMessage) {
   if (!items || !items.length) return '<div class="empty-tight">' + htmlEscape(emptyMessage) + '</div>';
   return items.map(item => {
     const importancePct = item.importance !== undefined ? Math.round((item.importance || 0) * 100) + '%' : '';
-    // v7.1.0: real blended recall confidence (recency + importance + corroboration + usage + relevance).
+    // v7.2.0: real blended recall confidence (recency + importance + corroboration + usage + relevance).
     const conf = item.confidence && typeof item.confidence.score === 'number' ? item.confidence : null;
     const confCls = conf ? (conf.level === 'high' ? 'green' : conf.level === 'medium' ? 'yellow' : 'red') : '';
     const confBadge = conf ? '<span class="pill ' + confCls + '" title="Heuristic recall score (not probability of truth) ' + Math.round(conf.score * 100) + '% (' + htmlEscape(conf.level) + ') | relevance ' + conf.signals.relevance + ', creation-age recency ' + conf.signals.recency + ', importance ' + conf.signals.importance + ', matching-content agent reports ' + conf.signals.corroboration + ', usage ' + conf.signals.usage + '">\u2737 ' + Math.round(conf.score * 100) + '%</span>' : '';
@@ -3125,29 +3125,7 @@ async function exportPackage() {
 
 // ──── Features ─────────────────────────────────────────────────────────
 async function refreshFeatures() {
-  const cfg = (await api('/api/v6/features-config')) ?? {};
-  document.getElementById('feature-grid').innerHTML = FEATURES.map(([id, name, desc]) => {
-    const on = cfg[id] !== false; // default enabled
-    return \`<div class="feature-toggle" id="ft-\${id}">
-      <div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
-      <div class="meta"><div class="name">\${name}</div><div class="desc">\${desc}</div></div>
-      <label class="switch"><input type="checkbox" \${on ? 'checked' : ''} data-feature="\${id}"><span class="slider"></span></label>
-    </div>\`;
-  }).join('');
-  // Bind listeners cleanly so the toggle always fires
-  document.querySelectorAll('#feature-grid input[data-feature]').forEach(el => {
-    el.addEventListener('change', async e => {
-      const id = e.target.getAttribute('data-feature');
-      const on = e.target.checked;
-      const res = await api('/api/v6/features-config', { [id]: on });
-      toast(on ? 'Enabled' : 'Disabled', id, on ? 'success' : 'warn');
-      if (!res) { e.target.checked = !on; /* revert on error */ }
-    });
-  });
-}
-async function toggleFeature(id, on) {
-  const res = await api('/api/v6/features-config', { [id]: on });
-  if (res) toast(on ? 'Enabled' : 'Disabled', id, on ? 'success' : 'warn');
+  document.getElementById('feature-grid').innerHTML = '<div><p>Runtime controls have moved to the workspace. Each switch describes the behavior it changes.</p><p style="margin-top:16px"><a class="btn primary" href="/#features">Open feature controls</a></p></div>';
 }
 
 // ──── Models & Intelligence ────────────────────────────────────────────

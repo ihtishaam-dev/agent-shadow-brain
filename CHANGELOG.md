@@ -1,5 +1,14 @@
 # Changelog
 
+## [7.2.0] - 2026-11-11 - Context Packs and Workspace
+
+- Make the local workspace the default dashboard with overview, searchable memories, graph, context, and feature controls. Keep the previous dashboard at `/advanced`.
+- Build size-bounded, project-scoped context packs with ranked memory selection, duplicate handling, recorded source provenance, and selection explanations.
+- Use context packs for session briefings. Key cached results to the task and current settings, and check enablement before reading or returning a briefing.
+- Persist four validated feature settings for context assembly, explicit cross-project context, automatic briefings, and dashboard activity delivery.
+- Add `context-pack` and `features list|set` commands, read-only `context_pack` and `feature_flags` MCP tools, and public context and settings APIs.
+- Refresh the README and workspace guide with a concept illustration and dashboard screenshots.
+
 ## [7.1.0] - 2026-11-11 - Focused Workflows and Portable Skills
 
 - Bundle six reusable skills for proportionate planning, implementation, diagnosis, review, research, and release work.

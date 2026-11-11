@@ -4,6 +4,10 @@
 export { GlobalBrain, getGlobalBrain } from './brain/global-brain.js';
 export type { GlobalBrainConfig, GlobalBrainStats, GlobalBrainStorageHealth, GlobalEntry, RecallConfidence, ScoredGlobalEntry } from './types.js';
 export { analyzeTask } from './brain/task-workflow.js';
+export { assembleContext, contextQueryKeywords } from './brain/context-assembly.js';
+export type { ContextPack, ContextPackEntry, ContextAssemblyOptions } from './brain/context-assembly.js';
+export { FeatureSettingsStore, FeatureSettingsError, getFeatureSettings, FEATURE_DEFINITIONS, DEFAULT_FEATURE_FLAGS } from './brain/feature-settings.js';
+export type { FeatureId, FeatureFlags, FeatureSettingsSnapshot, FeatureSettingsOptions } from './brain/feature-settings.js';
 export type { TaskWorkflow, TaskWorkflowOptions } from './brain/task-workflow.js';
 export { WORKFLOW_TARGETS, listWorkflowTargets, listBundledSkills, getBundledSkill, planSkillInstall, applySkillInstall } from './brain/workflow-skills.js';
 export type { WorkflowTarget, BundledWorkflowSkill, SkillInstallOptions, SkillInstallFile, SkillInstallPlan, SkillInstallResult } from './brain/workflow-skills.js';

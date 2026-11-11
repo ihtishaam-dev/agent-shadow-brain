@@ -67,7 +67,7 @@ export class BrainPortability {
     const filePath = path.join(this.exportDir, fileName);
 
     const data: BrainExportData = {
-      version: '7.1.0',
+      version: '7.2.0',
       exportedAt: new Date(),
       projectName,
       projectDir: this.projectDir,

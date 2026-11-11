@@ -175,7 +175,7 @@ function normalizeText(value: string): string {
   return value.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
-function normalizeKeywords(keywords: unknown): string[] {
+export function normalizeRecallKeywords(keywords: unknown): string[] {
   if (!Array.isArray(keywords)) return [];
   const unique = new Set<string>();
   for (const value of keywords) {
@@ -349,7 +349,7 @@ export class GlobalBrain {
   /** Recall matching entries across projects and agents. */
   recall(opts: RecallOptions = {}): GlobalEntry[] {
     if (!this.initialized) return [];
-    const keywords = normalizeKeywords(opts.keywords);
+    const keywords = normalizeRecallKeywords(opts.keywords);
     const result = this.findMatches(opts, keywords)
       .sort((a, b) => b.relevance - a.relevance || this.compareEntries(a.entry, b.entry))
       .slice(0, nonNegativeInt(opts.limit, 20))
@@ -361,7 +361,7 @@ export class GlobalBrain {
   /** Recall entries with heuristic ranking signals and an explanation of the match. */
   recallScored(opts: RecallOptions & { minConfidence?: number } = {}): ScoredGlobalEntry[] {
     if (!this.initialized) return [];
-    const keywords = normalizeKeywords(opts.keywords);
+    const keywords = normalizeRecallKeywords(opts.keywords);
     const candidates = this.findMatches(opts, keywords);
     const evidence = new Map<string, Set<AgentTool>>();
     for (const { entry } of candidates) {
