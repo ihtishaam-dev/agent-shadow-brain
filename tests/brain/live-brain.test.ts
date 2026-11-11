@@ -95,7 +95,7 @@ describe('live brain v6.0.3', () => {
     expect(evalReport.cases[0].hitCount).toBe(1);
     expect(evalReport.sourceBackedHitRate).toBe(1);
 
-    const jsonl = buildTrainingJsonl(entries);
+    const jsonl = buildTrainingJsonl(entries, {}, new Date('2026-06-03T12:00:00.000Z'));
     const parsed = JSON.parse(jsonl);
     expect(parsed.messages[0].role).toBe('system');
     expect(parsed.metadata.memoryId).toBe('resume');

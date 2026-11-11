@@ -13,9 +13,13 @@ import { BaseAdapter } from './adapters/base-adapter.js';
 import { BrainConfig, BrainInsight, AgentTool, BrainPersonality, LLMProvider } from './types.js';
 import { checkForUpdate, formatUpdateNotice } from './brain/auto-update.js';
 
-const VERSION = '6.3.0';
+const VERSION = '7.0.0';
 
-const config: any = new Conf({
+// Defer config reads until a command actually needs provider settings.
+let savedConfig: Conf | undefined;
+function getConfig(): any {
+  savedConfig ??= new Conf({
+  ...(process.env.SHADOW_BRAIN_CONFIG_DIR ? { cwd: process.env.SHADOW_BRAIN_CONFIG_DIR } : {}),
   projectName: 'shadow-brain',
   defaults: {
     provider: 'ollama',
@@ -27,10 +31,12 @@ const config: any = new Conf({
     reviewDepth: 'standard',
     brainPersonality: 'balanced',
   },
-});
+  });
+  return savedConfig;
+}
 
 function mergeConfig(cliOpts: any): BrainConfig {
-  const saved = config.store;
+  const saved = getConfig().store;
   const watchMode = cliOpts.watchMode === false || cliOpts.watch === false
     ? false
     : saved.watchMode !== false;
@@ -434,7 +440,7 @@ const injectCmd = new Command('inject')
 const statusCmd = new Command('status')
   .description('Show current Shadow Brain configuration and status')
   .action(async () => {
-    const saved = config.store;
+    const saved = getConfig().store;
 
     console.log(chalk.magenta.bold(`\n  SHADOW BRAIN v${VERSION} Status\n`));
 
@@ -474,7 +480,7 @@ const configCmd = new Command('config')
   .action(async (key?: string, value?: string, opts?: any) => {
     if (opts?.list) {
       console.log(chalk.magenta.bold('\n  SHADOW BRAIN Configuration\n'));
-      const saved = config.store;
+      const saved = getConfig().store;
       for (const [k, v] of Object.entries(saved)) {
         const display = k === 'apiKey' && v ? '••••••••' : String(v);
         console.log(chalk.dim(`  ${k}: `) + chalk.cyan(display));
@@ -484,7 +490,7 @@ const configCmd = new Command('config')
     }
 
     if (opts?.reset) {
-      config.clear();
+      getConfig().clear();
       console.log(chalk.green('  Configuration reset to defaults.'));
       return;
     }
@@ -496,7 +502,7 @@ const configCmd = new Command('config')
       else if (!isNaN(Number(value))) parsedValue = Number(value);
       else if (value.includes(',')) parsedValue = value.split(',');
 
-      config.set(key as any, parsedValue);
+      getConfig().set(key as any, parsedValue);
       console.log(chalk.green(`  Set ${key} = ${parsedValue}`));
       return;
     }
@@ -525,13 +531,13 @@ const setupCmd = new Command('setup')
     const provider = await ask(chalk.yellow('  Choose provider [1-4] (default: 1): '));
     const providerMap: Record<string, string> = { '1': 'ollama', '2': 'anthropic', '3': 'openai', '4': 'openrouter' };
     const chosenProvider = providerMap[provider.trim() || '1'] || 'ollama';
-    config.set('provider', chosenProvider);
+    getConfig().set('provider', chosenProvider);
     console.log(chalk.green(`  ✓ Provider: ${chosenProvider}\n`));
 
     if (chosenProvider !== 'ollama') {
       const apiKey = await ask(chalk.yellow(`  Enter ${chosenProvider} API key: `));
       if (apiKey.trim()) {
-        config.set('apiKey', apiKey.trim());
+        getConfig().set('apiKey', apiKey.trim());
         console.log(chalk.green('  ✓ API key saved\n'));
       } else {
         console.log(chalk.yellow('  ⚠ No API key provided — you can set it later with: shadow-brain config apiKey <key>\n'));
@@ -550,7 +556,7 @@ const setupCmd = new Command('setup')
     const personality = await ask(chalk.yellow('  Choose personality [1-6] (default: 1): '));
     const personalityMap: Record<string, string> = { '1': 'balanced', '2': 'mentor', '3': 'critic', '4': 'architect', '5': 'security', '6': 'performance' };
     const chosenPersonality = personalityMap[personality.trim() || '1'] || 'balanced';
-    config.set('brainPersonality', chosenPersonality);
+    getConfig().set('brainPersonality', chosenPersonality);
     console.log(chalk.green(`  ✓ Personality: ${chosenPersonality}\n`));
 
     console.log(chalk.cyan('  Review Depth:'));
@@ -559,17 +565,17 @@ const setupCmd = new Command('setup')
     console.log(chalk.dim('    3. deep     (thorough, full diffs)'));
     const depth = await ask(chalk.yellow('  Choose depth [1-3] (default: 1): '));
     const depthMap: Record<string, string> = { '1': 'standard', '2': 'quick', '3': 'deep' };
-    config.set('reviewDepth', depthMap[depth.trim() || '1'] || 'standard');
+    getConfig().set('reviewDepth', depthMap[depth.trim() || '1'] || 'standard');
     console.log(chalk.green('  ✓ Review depth saved\n'));
 
     const inject = await ask(chalk.yellow('  Enable auto-injection? [Y/n] (default: Y): '));
-    config.set('autoInject', inject.trim().toLowerCase() !== 'n');
+    getConfig().set('autoInject', inject.trim().toLowerCase() !== 'n');
     console.log(chalk.green(`  ✓ Auto-injection: ${inject.trim().toLowerCase() !== 'n' ? 'enabled' : 'disabled'}\n`));
 
     rl.close();
 
     console.log(chalk.magenta.bold('  Setup complete!\n'));
-    console.log(chalk.dim('  Configuration saved to: ') + chalk.cyan(config.path));
+    console.log(chalk.dim('  Configuration saved to: ') + chalk.cyan(getConfig().path));
     console.log();
     console.log(chalk.dim('  Next steps:'));
     console.log(chalk.cyan('    shadow-brain start .') + chalk.dim('    # Start watching a project'));
@@ -592,13 +598,13 @@ const doctorCmd = new Command('doctor')
     const checks: { name: string; status: 'ok' | 'warn' | 'fail'; detail: string }[] = [];
 
     try {
-      const saved = config.store;
+      const saved = getConfig().store;
       checks.push({ name: 'Configuration', status: 'ok', detail: `provider=${saved.provider}, personality=${saved.brainPersonality}` });
     } catch {
       checks.push({ name: 'Configuration', status: 'fail', detail: 'Could not read config. Run `shadow-brain setup`.' });
     }
 
-    const provider = config.get('provider') as string || 'ollama';
+    const provider = getConfig().get('provider') as string || 'ollama';
     if (provider === 'ollama') {
       try {
         const resp = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(3000) });
@@ -613,19 +619,20 @@ const doctorCmd = new Command('doctor')
         checks.push({ name: 'Ollama', status: 'fail', detail: 'Cannot connect to Ollama at localhost:11434. Start with: ollama serve' });
       }
     } else {
-      const apiKey = config.get('apiKey') as string;
+      const apiKey = getConfig().get('apiKey') as string;
       if (apiKey) {
-        checks.push({ name: `${provider} API key`, status: 'ok', detail: 'Key is set (' + apiKey.slice(0, 4) + '...)' });
+        checks.push({ name: `${provider} API key`, status: 'ok', detail: 'Key is configured' });
       } else {
         checks.push({ name: `${provider} API key`, status: 'fail', detail: 'No API key configured. Run: shadow-brain config apiKey <key>' });
       }
     }
 
     const nodeVersion = process.version;
-    const major = parseInt(nodeVersion.slice(1).split('.')[0]);
-    checks.push({ name: 'Node.js', status: major >= 18 ? 'ok' : 'warn', detail: `${nodeVersion} ${major >= 18 ? '(supported)' : '(recommend v18+)'}` });
+    const [major, minor] = nodeVersion.slice(1).split('.').map(Number);
+    const nodeSupported = (major === 22 && minor >= 12) || major === 24 || major >= 26;
+    checks.push({ name: 'Node.js', status: nodeSupported ? 'ok' : 'warn', detail: `${nodeVersion} ${nodeSupported ? '(supported)' : '(requires Node 22.12+, 24.x, or 26+)'}` });
 
-    const projectDir = config.get('projectDir') as string || process.cwd();
+    const projectDir = getConfig().get('projectDir') as string || process.cwd();
     try {
       const stat = fs.statSync(projectDir);
       checks.push({ name: 'Project directory', status: stat.isDirectory() ? 'ok' : 'fail', detail: projectDir });
@@ -2636,7 +2643,7 @@ const v5Cmd = new Command('v5')
 const program = new Command();
 program
   .name('shadow-brain')
-  .description('Shadow Brain v6.0.3 - local cross-agent memory, live brain health, resume context, and safety controls')
+  .description('Shadow Brain - durable cross-agent memory, explained recall, and storage health')
   .version(VERSION);
 
 program.addCommand(startCmd);
@@ -5161,4 +5168,63 @@ program.addCommand(memesCmd);
 program.addCommand(brain3dCmd);
 program.addCommand(doppelgangerCmd);
 
-program.parse();
+const storageHealthCmd = new Command('storage-health')
+  .description('Check memory-store readability and report storage errors without loading provider settings')
+  .option('--db <path>', 'Memory-store path (defaults to the global brain)')
+  .option('--json', 'Print machine-readable JSON')
+  .action(async (opts: { db?: string; json?: boolean }) => {
+    const { getGlobalBrain } = await import('./brain/global-brain.js');
+    const brain = getGlobalBrain(opts.db ? { dbPath: path.resolve(opts.db) } : undefined);
+    try {
+      await brain.init();
+    } catch {
+      process.exitCode = 1;
+    }
+    const health = brain.getStorageHealth();
+    if (opts.json) console.log(JSON.stringify(health, null, 2));
+    else {
+      console.log(`Storage: ${health.status}\nDatabase: ${health.dbPath}\nPending operations: ${health.pendingOperations}`);
+      if (health.lastError) console.log(`${health.lastError.code}: ${health.lastError.message}`);
+    }
+    if (health.initialized) await brain.shutdown();
+  });
+
+const recallExplainCmd = new Command('recall-explain')
+  .description('Recall memories with keyword matches, score components, and supporting agent identities')
+  .argument('<query>', 'Keywords to search for')
+  .option('--db <path>', 'Memory-store path (defaults to the global brain)')
+  .option('--project <path>', 'Restrict recall to this project')
+  .option('--limit <number>', 'Maximum results', '10')
+  .option('--min-confidence <number>', 'Minimum heuristic score from 0 to 1', '0')
+  .action(async (query: string, opts: { db?: string; project?: string; limit: string; minConfidence: string }) => {
+    const limit = Number(opts.limit);
+    const minConfidence = Number(opts.minConfidence);
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000 || !Number.isFinite(minConfidence) || minConfidence < 0 || minConfidence > 1) {
+      console.error('Use --limit between 1 and 1000 and --min-confidence between 0 and 1.');
+      process.exitCode = 1;
+      return;
+    }
+    const { getGlobalBrain, GlobalBrain } = await import('./brain/global-brain.js');
+    const brain = getGlobalBrain(opts.db ? { dbPath: path.resolve(opts.db) } : undefined);
+    try {
+      await brain.init();
+      console.log(JSON.stringify(brain.recallScored({
+        keywords: query.split(/\s+/),
+        projectId: opts.project ? GlobalBrain.projectIdFor(opts.project) : undefined,
+        limit,
+        minConfidence,
+      }), null, 2));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : 'Recall failed.');
+      process.exitCode = 1;
+    } finally {
+      if (brain.getStorageHealth().initialized) await brain.shutdown();
+    }
+  });
+
+program.addCommand(storageHealthCmd);
+program.addCommand(recallExplainCmd);
+program.parseAsync().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : 'Command failed.');
+  process.exitCode = 1;
+});

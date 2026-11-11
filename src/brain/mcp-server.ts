@@ -52,6 +52,7 @@ export class MCPServer {
       global_recall: this.handleGlobalRecall.bind(this),
       global_recall_scored: this.handleGlobalRecallScored.bind(this),
       global_stats: this.handleGlobalStats.bind(this),
+      global_storage_health: this.handleGlobalStorageHealth.bind(this),
       attach_status: this.handleAttachStatus.bind(this),
       global_timeline: this.handleGlobalTimeline.bind(this),
       firewall_check: this.handleFirewallCheck.bind(this),
@@ -339,7 +340,7 @@ export class MCPServer {
     const brain = getGlobalBrain();
     await Promise.all([sabb.init(), causal.init(), collisions.init(), dream.init(), rep.init(), tokens.init(), formal.init(), airgap.init(), brain.init()]);
     return {
-      version: '6.0.3',
+      version: '7.0.0',
       modules: {
         sabb: sabb.getStats(),
         causal: causal.stats(),
@@ -410,6 +411,11 @@ export class MCPServer {
       brain: brain.getStats(),
       caches: getAllCacheStats(),
     };
+  }
+
+  private async handleGlobalStorageHealth(_params: Record<string, unknown>): Promise<unknown> {
+    const { getGlobalBrain } = await import('./global-brain.js');
+    return getGlobalBrain().getStorageHealth();
   }
 
   private async handleAttachStatus(params: Record<string, unknown>): Promise<unknown> {
@@ -534,7 +540,7 @@ export class MCPServer {
         // Lightweight health endpoint for tool connectivity checks
         this.sendJSON(res, 200, {
           status: 'ok',
-          version: '6.0.3',
+          version: '7.0.0',
           uptime: process.uptime(),
           tools: Object.keys(this.toolHandlers).length,
         });
@@ -649,7 +655,7 @@ export class MCPServer {
       },
       serverInfo: {
         name: 'agent-shadow-brain',
-        version: '6.0.3',
+        version: '7.0.0',
         description: 'Cross-agent memory and safety layer for AI coding agents',
       },
     };
@@ -976,7 +982,7 @@ export class MCPServer {
   private async handleStatus(params: Record<string, unknown>): Promise<unknown> {
     const status = this.orchestrator.getStatus?.() || {};
     return {
-      version: '6.0.3',
+      version: '7.0.0',
       ...status,
     };
   }
@@ -1005,7 +1011,7 @@ export class MCPServer {
       const instance = (this.orchestrator as Record<string, unknown>)[mod.key];
       modules.push({
         name: mod.name,
-        version: '6.0.3',
+        version: '7.0.0',
         status: instance ? 'active' : 'idle',
       });
     }
@@ -1231,7 +1237,7 @@ export class MCPServer {
       },
       {
         name: 'global_recall_scored',
-        description: 'Recall from the global brain with a per-memory confidence score (recency, importance, cross-agent corroboration, usage, relevance). Results are ranked by confidence. (v6.3.0)',
+        description: 'Recall memories ranked by a heuristic score, with matched keywords and same-content agent reports explaining each result. Scores are not probabilities of truth. (v7.0.0)',
         inputSchema: {
           type: 'object',
           properties: {
@@ -1249,6 +1255,11 @@ export class MCPServer {
         name: 'global_stats',
         description: 'Get global brain + L0 cache stats (v5.2.0)',
         inputSchema: { type: 'object', properties: {} },
+      },
+      {
+        name: 'global_storage_health',
+        description: 'Inspect this process memory-store status, pending operations, last successful save, and last storage error. Does not initialize or flush the store. (v7.0.0)',
+        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
       },
       {
         name: 'attach_status',

@@ -2,7 +2,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import simpleGit, { SimpleGit } from 'simple-git';
+import { simpleGit, SimpleGit } from 'simple-git';
 import { FileChange, ProjectContext } from '../types.js';
 
 const EXTENSION_MAP: Record<string, string> = {
