@@ -1,7 +1,7 @@
 {
   "name": "@theihtisham/agent-shadow-brain",
-  "version": "7.0.0",
-  "description": "Local-first memory and coordination layer for AI coding agents. Shadow Brain stores source-backed project lessons, recalls them across Codex, Claude Code, Cursor, Cline, OpenCode, and other tools, generates resume briefings, audits memory quality, exports training/eval JSONL, and exposes CLI/API/MCP surfaces with zero telemetry.",
+  "version": "7.1.0",
+  "description": "Local-first memory, task workflows, and built-in skills for AI coding agents. Share source-backed lessons, install focused skills for Codex, Claude Code, OpenCode, and DeepSeek Harness, and access guidance through CLI, library, and MCP tools.",
   "main": "dist/index.js",
   "exports": {
     ".": "./dist/index.js"
@@ -22,6 +22,9 @@
     "test:package": "node tools/package-smoke.mjs"
   },
   "keywords": [
+    "agent-skills",
+    "task-workflow",
+    "deepseek-harness",
     "ai",
     "agent",
     "brain",
@@ -190,7 +193,10 @@
     "tools/export-resume-pack.mjs",
     "tools/record-global-memory.mjs",
     "docs/launch/RELEASE_NOTES_v7.0.0.md",
-    "docs/launch/RELEASE_CHECKLIST_v7.0.0.md"
+    "docs/launch/RELEASE_CHECKLIST_v7.0.0.md",
+    "skills/**/*",
+    "docs/launch/RELEASE_NOTES_v7.1.0.md",
+    "docs/WORKFLOW_INTEGRATION.md"
   ],
   "publishConfig": {
     "access": "public"
