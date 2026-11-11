@@ -2,28 +2,51 @@
 
 Local-first memory and coordination for AI coding agents.
 
-Version: 6.3.0
+Version: 7.0.0
 
-<p align="center">
-  <img src="Banner.png" alt="Agent Shadow Brain shared local memory layer for AI agents" width="100%">
-</p>
-<p align="center">
-  <a href="https://trendshift.io/repositories/20881" target="_blank"><img src="https://trendshift.io/api/badge/repositories/20881" alt="chopratejas%2Fheadroom | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-</p>
-<p align="center">
-  <img src="docs/launch/github-trending-ready.svg" alt="GitHub Trending Ready - Agent Shadow Brain v6.0.3 live on npm" width="420">
-</p>
 
 Agent Shadow Brain gives tools like Codex, Claude Code, Cursor, Cline, OpenCode, Aider, and related MCP clients a shared local memory layer. It stores compact, source-backed lessons about projects, recalls them later, generates fresh-session briefings, audits memory quality, and exports JSONL training/eval packs.
 
 It does not change model weights by itself. It helps agents work better by giving them relevant, current, source-linked context before and during complex work.
 
-## What's New in 6.3.0
+## What's New in 7.0.0
 
-Recall confidence scoring, plus the 6.2.0 dashboard upgrade for clarity and visibility.
+- **Durable multi-agent memory.** Saves lock, reload, and merge the latest store so independent agents cannot replace each other's new memories. Queued writes acknowledge success after persistence. Failed operations remain retryable and visible in storage health.
+- **Explainable recall.** Results include matched keywords, score components, and identities reporting the same normalized content within the same project and category. Unrelated notes no longer inflate scores. Scores are ranking heuristics, not probabilities of truth or proof of independent verification.
+- **Storage diagnostics.** Use `shadow-brain storage-health --json` or MCP `global_storage_health` to inspect errors and pending operations. Invalid or unsupported stores fail explicitly and remain unchanged.
+- **Safer setup and packaging.** Installation no longer edits agent settings. Help, version, and memory diagnostics do not load provider configuration. Dependencies are refreshed, activity-log text is escaped, and package tests install a real tarball into a fresh consumer project.
 
-- **Recall confidence.** Every recalled memory now carries a blended confidence score (high/medium/low) so an agent can weight what it trusts. The score combines keyword relevance, recency (30-day half-life), author-assigned importance, cross-agent corroboration, and prior usage. Exposed via `GlobalBrain.recallScored()`, the `global_recall_scored` MCP tool, and a color-coded badge in the dashboard.
-- **Quieter automation.** Fixed a GitHub Actions bot that opened duplicate milestone/momentum issues; notifiers are now idempotent and verify against GitHub before posting.
+### Upgrade from 6.x
+
+Use Node.js 22.12+ within 22.x, Node 24.x, or Node 26+. Back up your existing `global.json` before upgrading and stop older Shadow Brain writers; older versions do not participate in the new lock protocol. The schema remains version 1. Start integrations explicitly using the existing setup/attach commands after installation.
+
+`writeSync()` remains an in-memory operation; call `await brain.sync()` for durable persistence. `await brain.write()` resolves after the background sync or an explicit sync; a false result means persistence failed or the queue was full. Failed accepted operations remain pending for retry. Recall reads the process snapshot, refreshed by sync; it is not an instantaneous cross-process read.
+
+### New commands
+
+```bash
+shadow-brain storage-health --json
+shadow-brain storage-health --db ./global.json --json
+shadow-brain recall-explain "deployment rollback" --limit 5
+shadow-brain recall-explain "database migration" --project . --min-confidence 0.4
+```
+
+`storage-health` validates readability and schema, reports JSON even on failure, and exits with code 1 for an invalid store. It does not repair or rewrite an existing store; when checking a missing store it may create its parent directory. `lastSuccessfulSync` describes the current process only. The MCP health tool inspects existing process state without initializing or flushing it.
+
+The library exports `GlobalBrain`, `getGlobalBrain`, and their public types:
+
+```js
+import { getGlobalBrain } from '@theihtisham/agent-shadow-brain';
+const brain = getGlobalBrain({ dbPath: './global.json' });
+await brain.init();
+console.log(brain.recallScored({ keywords: ['deployment'], limit: 5 }));
+console.log(brain.getStorageHealth());
+await brain.shutdown();
+```
+
+Details: [release notes](docs/launch/RELEASE_NOTES_v7.0.0.md).
+
+## Earlier dashboard features
 
 - **Simple by default, Advanced on demand.** The dashboard opens with eight plain-English tabs (Home, Brain Map, Memories, Ask the Brain, Activity, Connected Tools, Brain Health, Settings). Flip to Advanced to reveal every feature — nothing was removed, just tidied.
 - **Brain Map.** An interactive graph of everything the brain remembers — memories, projects, tools, and tags — sized by importance (PageRank) and linked by shared context. Zoom, pan, click a node for details, and watch it grow live as new memories arrive.
@@ -32,18 +55,6 @@ Recall confidence scoring, plus the 6.2.0 dashboard upgrade for clarity and visi
 - **Two-way knowledge seeding.** Quick-Save captures knowledge in one click; "Hand to Agent" generates a ready briefing to pass context back to any tool.
 - **Plain-language everywhere.** Cryptic feature names rewritten (e.g. Calibration → Accuracy, Pre-Mortem → Risk Check, Tokens → Cost & Usage), each with a hover description.
 
-<p align="center">
-  <img src="docs/screenshots/01-home.png" alt="Shadow Brain dashboard Home — summary of memories, connected tools, and live activity" width="100%">
-</p>
-<p align="center">
-  <img src="docs/screenshots/02-brain-map.png" alt="Brain Map — interactive memory constellation graph" width="100%">
-</p>
-<p align="center">
-  <img src="docs/screenshots/03-live-network.png" alt="Live Network — animated view of tools communicating with the brain" width="100%">
-</p>
-<p align="center">
-  <img src="docs/screenshots/04-recall-confidence.png" alt="Recall confidence - recalled memories ranked with color-coded high, medium, and low confidence badges" width="100%">
-</p>
 
 ## What It Actually Does
 
@@ -390,9 +401,9 @@ Do not store secrets, API keys, passwords, private keys, or raw credentials in m
 ## Development
 
 ```bash
-npm install
-npm run build
-npm test
+npm ci --ignore-scripts
+npm run verify
+npm run test:package
 ```
 
 Focused tests:
@@ -410,28 +421,7 @@ npx.cmd vitest run tests\brain\live-brain.test.ts
 
 ## Release Checklist
 
-For a 6.0.3 release:
-
-```bash
-npm run build
-npm test
-npm pack --dry-run
-```
-
-Then publish only after verifying the package contents:
-
-```bash
-npm publish --access public
-```
-
-GitHub release should include:
-
-- this README
-- `CHANGELOG.md`
-- `docs/launch/RELEASE_NOTES_v6.0.3.md`
-- `docs/launch/RELEASE_CHECKLIST_v6.0.3.md`
-- build/test output
-- npm package dry-run output
+Run `npm run verify`, `npm audit --audit-level=high`, and `npm run test:package`. Inspect the package allowlist, then publish the verified tarball. Confirm the npm version, integrity, and GitHub tag before announcing a release. See [the complete release checklist](docs/launch/RELEASE_CHECKLIST_v7.0.0.md).
 
 ## License
 

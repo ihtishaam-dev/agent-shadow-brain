@@ -1403,10 +1403,21 @@ export interface GlobalBrainConfig {
   writeQueueSize: number;
   /** Auto-vacuum threshold in MB */
   autoVacuumMB: number;
-  /** Auto-prune threshold in MB (compress to lower tier when exceeded) */
+  /** Auto-prune threshold in MB, checked when committing pending operations. */
   autoPruneMB: number;
   /** Sync interval to flush pending writes (ms) */
   syncIntervalMs: number;
+  /** Maximum time to wait for another process to release the store lock (default 5000 ms). */
+  lockTimeoutMs?: number;
+}
+
+export interface GlobalBrainStorageHealth {
+  status: 'healthy' | 'pending' | 'error';
+  dbPath: string;
+  initialized: boolean;
+  pendingOperations: number;
+  lastSuccessfulSync: string | null;
+  lastError: { code: string; message: string; at: string } | null;
 }
 
 export interface GlobalBrainStats {
@@ -1440,15 +1451,11 @@ export interface GlobalEntry {
 }
 
 /**
- * Confidence breakdown for a recalled memory (v6.3.0).
- *
- * Not all memories are equally reliable. `global_recall` can attach a
- * confidence score so the consuming agent can weight memories by recency,
- * author-assigned importance, cross-agent corroboration, prior usage, and
- * keyword relevance instead of treating every hit as equally trustworthy.
+ * Heuristic ranking signals for a recalled memory. Verify important claims against
+ * their sources before relying on them.
  */
 export interface RecallConfidence {
-  /** Final blended confidence in [0,1]. */
+  /** Blended recall score in [0,1]. */
   score: number;
   /** Bucketed label: high >= 0.66, medium >= 0.33, else low. */
   level: 'high' | 'medium' | 'low';
@@ -1456,14 +1463,22 @@ export interface RecallConfidence {
   signals: {
     /** Keyword match strength (0.5 baseline when no keywords supplied). */
     relevance: number;
-    /** Recency of last access — exponential decay with a ~30-day half-life. */
+    /** Recency of creation with a 30-day half-life. */
     recency: number;
     /** Author-assigned importance. */
     importance: number;
-    /** Cross-agent agreement — distinct agents corroborating this category. */
+    /** Exact normalized content shared by distinct agent tool labels in this project and category. */
     corroboration: number;
     /** How often this memory has been recalled before. */
     usage: number;
+  };
+  explanation?: {
+    /** Unique normalized query terms matched in the entry. */
+    matchedKeywords: string[];
+    /** Number of unique meaningful terms supplied, including terms that did not match. */
+    totalKeywords: number;
+    /** Other agent tool labels with identical normalized content. Labels are self-reported. */
+    corroboratingAgents: AgentTool[];
   };
 }
 

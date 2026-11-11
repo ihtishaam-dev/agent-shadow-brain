@@ -1,5 +1,25 @@
 # Changelog
 
+
+## [7.0.0] - 2026-11-11 - Durable Memory and Explained Recall
+
+### Breaking changes
+
+- Require Node 22.12+ in 22.x, 24.x, or 26+; update dependency majors including simple-git, Zod, Anthropic SDK, and Vitest.
+- Remove automatic install-time agent configuration. Setup is explicit.
+- Reject unreadable, invalid, and unsupported stores without silently resetting or renaming them.
+- Recall scoring uses real keyword coverage, creation-age recency, and matching-content agent reports. Existing minimum-confidence thresholds may return different results.
+
+### Added and fixed
+
+- Serialize cross-process commits; merge latest data with pending operations, preserve external deletions, and use unique temporary files.
+- Acknowledge queued writes after persistence, retain failed changes for retry, and expose structured storage diagnostics.
+- Add `storage-health` and `recall-explain` commands, `global_storage_health` MCP tool, and public GlobalBrain library exports/types.
+- Make scored recall finite and deterministic across the full candidate pool; explain matches and supporting identities.
+- Load CLI configuration only when required, redact diagnostic key output, and escape dashboard activity text.
+- Update dependencies, isolate tests from personal state, correct a date-dependent training-export test, add artifact consumer smoke checks, and expand CI to Windows/Linux on Node 22/24/26.
+- Make legacy promotional automation manual-only.
+
 ## [6.3.0] - 2026-06-06 - Recall Confidence + Issue-Bot Spam Fix
 
 This release adds per-memory recall confidence scoring and fixes a GitHub Actions

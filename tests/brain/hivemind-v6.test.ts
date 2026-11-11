@@ -10,11 +10,8 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 
-// Force HOME to a tmp dir for isolation
-const tmpHome = path.join(os.tmpdir(), `shadow-brain-tests-${Date.now()}`);
-fs.mkdirSync(tmpHome, { recursive: true });
-process.env.HOME = tmpHome;
-process.env.USERPROFILE = tmpHome;
+// tests/setup.ts supplies an isolated home before application modules load.
+const tmpHome = os.homedir();
 
 describe('v6 Hive Mind modules — smoke suite', () => {
   beforeEach(async () => {

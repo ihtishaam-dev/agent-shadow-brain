@@ -1,6 +1,6 @@
 // src/watchers/git-watcher.ts — Watches git activity (commits, branches, diffs)
 
-import simpleGit, { SimpleGit, StatusResult, DiffResult } from 'simple-git';
+import { simpleGit, SimpleGit, StatusResult, DiffResult } from 'simple-git';
 import { EventEmitter } from 'events';
 
 export interface GitState {

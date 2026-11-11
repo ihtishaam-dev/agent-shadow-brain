@@ -11,10 +11,7 @@ name: Viral Amplifier Bot
 #   7. NO secrets shared with bot beyond GITHUB_TOKEN (auto-provided).
 
 on:
-  schedule:
-    - cron: '0 14 * * *'   # Daily 14:00 UTC = stats refresh
-    - cron: '0 14 * * 0'   # Sunday 14:00 UTC = weekly viral report
-    - cron: '0 */6 * * *'  # Every 6h = trending check
+  # Opt-in only: restoring this repository must not start outreach automation.
   workflow_dispatch:
     inputs:
       job:
@@ -34,10 +31,6 @@ on:
           - quality-scorecard
           - inclusion-checker
           - fork-cleanup
-  issues:
-    types: [opened]
-  pull_request_target:
-    types: [opened]
 
 permissions:
   contents: write

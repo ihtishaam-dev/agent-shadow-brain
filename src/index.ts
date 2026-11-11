@@ -1,6 +1,9 @@
 // src/index.ts — Library entry point for @theihtisham/agent-shadow-brain v6.0.0 "Hive Mind"
 
 // Types
+export { GlobalBrain, getGlobalBrain } from './brain/global-brain.js';
+export type { GlobalBrainConfig, GlobalBrainStats, GlobalBrainStorageHealth, GlobalEntry, RecallConfidence, ScoredGlobalEntry } from './types.js';
+
 export type {
   AgentTool,
   AgentAdapter,
