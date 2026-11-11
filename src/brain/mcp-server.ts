@@ -53,6 +53,8 @@ export class MCPServer {
       global_recall_scored: this.handleGlobalRecallScored.bind(this),
       global_stats: this.handleGlobalStats.bind(this),
       global_storage_health: this.handleGlobalStorageHealth.bind(this),
+      workflow_analyze: this.handleWorkflowAnalyze.bind(this),
+      workflow_skills: this.handleWorkflowSkills.bind(this),
       attach_status: this.handleAttachStatus.bind(this),
       global_timeline: this.handleGlobalTimeline.bind(this),
       firewall_check: this.handleFirewallCheck.bind(this),
@@ -340,7 +342,7 @@ export class MCPServer {
     const brain = getGlobalBrain();
     await Promise.all([sabb.init(), causal.init(), collisions.init(), dream.init(), rep.init(), tokens.init(), formal.init(), airgap.init(), brain.init()]);
     return {
-      version: '7.0.0',
+      version: '7.1.0',
       modules: {
         sabb: sabb.getStats(),
         causal: causal.stats(),
@@ -416,6 +418,21 @@ export class MCPServer {
   private async handleGlobalStorageHealth(_params: Record<string, unknown>): Promise<unknown> {
     const { getGlobalBrain } = await import('./global-brain.js');
     return getGlobalBrain().getStorageHealth();
+  }
+
+  private async handleWorkflowAnalyze(params: Record<string, unknown>): Promise<unknown> {
+    const { analyzeTask } = await import('./task-workflow.js');
+    return analyzeTask(params.request as string, {
+      mode: params.mode as any,
+      taskType: params.taskType as any,
+      complexity: params.complexity as any,
+    });
+  }
+
+  private async handleWorkflowSkills(params: Record<string, unknown>): Promise<unknown> {
+    const { getBundledSkill, listBundledSkills } = await import('./workflow-skills.js');
+    if (params.name !== undefined && typeof params.name !== 'string') throw new Error('name must be a bundled skill name.');
+    return params.name === undefined ? listBundledSkills() : getBundledSkill(params.name as string);
   }
 
   private async handleAttachStatus(params: Record<string, unknown>): Promise<unknown> {
@@ -540,7 +557,7 @@ export class MCPServer {
         // Lightweight health endpoint for tool connectivity checks
         this.sendJSON(res, 200, {
           status: 'ok',
-          version: '7.0.0',
+          version: '7.1.0',
           uptime: process.uptime(),
           tools: Object.keys(this.toolHandlers).length,
         });
@@ -655,7 +672,7 @@ export class MCPServer {
       },
       serverInfo: {
         name: 'agent-shadow-brain',
-        version: '7.0.0',
+        version: '7.1.0',
         description: 'Cross-agent memory and safety layer for AI coding agents',
       },
     };
@@ -982,7 +999,7 @@ export class MCPServer {
   private async handleStatus(params: Record<string, unknown>): Promise<unknown> {
     const status = this.orchestrator.getStatus?.() || {};
     return {
-      version: '7.0.0',
+      version: '7.1.0',
       ...status,
     };
   }
@@ -1011,7 +1028,7 @@ export class MCPServer {
       const instance = (this.orchestrator as Record<string, unknown>)[mod.key];
       modules.push({
         name: mod.name,
-        version: '7.0.0',
+        version: '7.1.0',
         status: instance ? 'active' : 'idle',
       });
     }
@@ -1260,6 +1277,24 @@ export class MCPServer {
         name: 'global_storage_health',
         description: 'Inspect this process memory-store status, pending operations, last successful save, and last storage error. Does not initialize or flush the store. (v7.0.0)',
         inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      },
+      {
+        name: 'workflow_analyze',
+        description: 'Suggest a focused workflow and relevant bundled skills for a user request. Pure local heuristic: no execution, file changes, provider calls, or permission grants. (v7.1.0)',
+        inputSchema: {
+          type: 'object', required: ['request'], additionalProperties: false,
+          properties: {
+            request: { type: 'string', description: 'The requested task, including scope and planning-only constraints.' },
+            mode: { type: 'string', enum: ['auto', 'plan-only', 'execute'] },
+            taskType: { type: 'string', enum: ['auto', 'implement', 'debug', 'review', 'research', 'release'] },
+            complexity: { type: 'string', enum: ['auto', 'simple', 'complex'] },
+          },
+        },
+      },
+      {
+        name: 'workflow_skills',
+        description: 'List bundled workflow skills, or read one by name. Does not install skills or change client settings. (v7.1.0)',
+        inputSchema: { type: 'object', properties: { name: { type: 'string' } }, additionalProperties: false },
       },
       {
         name: 'attach_status',

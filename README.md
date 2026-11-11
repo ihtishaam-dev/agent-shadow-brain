@@ -1,15 +1,37 @@
 # Agent Shadow Brain
 
-Local-first memory and coordination for AI coding agents.
+Local-first memory, focused task workflows, and portable skills for AI coding agents.
 
-Version: 7.0.0
+Version: 7.1.0
 
 
 Agent Shadow Brain gives tools like Codex, Claude Code, Cursor, Cline, OpenCode, Aider, and related MCP clients a shared local memory layer. It stores compact, source-backed lessons about projects, recalls them later, generates fresh-session briefings, audits memory quality, and exports JSONL training/eval packs.
 
 It does not change model weights by itself. It helps agents work better by giving them relevant, current, source-linked context before and during complex work.
 
-## What's New in 7.0.0
+## What's New in 7.1.0
+
+Six built-in skills help an agent understand the request, plan in proportion to the work, carry out authorized changes, and verify the result. Simple answers stay simple. Planning-only, diagnosis-only, and review-only requests keep their boundaries; existing authorization carries forward.
+
+- **Focused skills:** `shadow-workflow`, `shadow-implement`, `shadow-debug`, `shadow-review`, `shadow-research`, and `shadow-release`.
+- **Project integrations:** Codex, Claude Code, OpenCode, and DeepSeek Harness skill directories, plus a portable option. Preview installation first; preserve existing project instructions and locally edited skills.
+- **Workflow guidance:** CLI, library, and MCP interfaces suggest steps and relevant skills. Routing is a local English-language heuristic with explicit overrides. The host agent interprets the request and performs the work.
+- **No provider setup required:** skills and workflow analysis run locally without model calls, credentials, background agents, or global configuration changes.
+
+Run these commands **from your project root**:
+
+```bash
+shadow-brain skills list
+shadow-brain skills install . --target codex
+shadow-brain skills install . --target codex --apply
+shadow-brain workflow analyze "Investigate and fix the failing export" --json
+```
+
+Replace `codex` with `claude-code`, `opencode`, `deepseek-harness`, or `portable`. Use `--target all` to install the four native layouts. The preview writes nothing; `--apply` writes the listed files after validation. Clients must support and enable skill discovery. DeepSeek Harness requires its filesystem skills, registry/tool support, and project-instruction context to be enabled. Installing files alone does not prove a running client loaded them.
+
+See the [integration guide](docs/WORKFLOW_INTEGRATION.md) for selection, preservation behavior, library/MCP examples, and compatibility sources; [7.1 release notes](docs/launch/RELEASE_NOTES_v7.1.0.md) describe the scope.
+
+## Memory improvements in 7.0.0
 
 - **Durable multi-agent memory.** Saves lock, reload, and merge the latest store so independent agents cannot replace each other's new memories. Queued writes acknowledge success after persistence. Failed operations remain retryable and visible in storage health.
 - **Explainable recall.** Results include matched keywords, score components, and identities reporting the same normalized content within the same project and category. Unrelated notes no longer inflate scores. Scores are ranking heuristics, not probabilities of truth or proof of independent verification.

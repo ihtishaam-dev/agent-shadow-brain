@@ -28,7 +28,9 @@ const packOutput = JSON.parse(npm(['pack', '--json', '--ignore-scripts', '--pack
 const pack = Array.isArray(packOutput) ? packOutput[0] : Object.values(packOutput)[0];
 const tarball = path.join(sandbox, pack.filename);
 assert(pack.files.some(file => file.path === 'dist/brain/global-brain.js'));
-assert(pack.files.some(file => file.path === 'docs/launch/RELEASE_NOTES_v7.0.0.md'));
+assert(pack.files.some(file => file.path === `docs/launch/RELEASE_NOTES_v${expected.version}.md`));
+const bundledNames = ['shadow-workflow', 'shadow-implement', 'shadow-debug', 'shadow-review', 'shadow-research', 'shadow-release'];
+for (const name of bundledNames) assert(pack.files.some(file => file.path === `skills/${name}/SKILL.md`));
 assert(!pack.files.some(file => /(^|\/)(tests|node_modules|work|outputs|\.git|\.env|\.npmrc)(\/|$)/.test(file.path)));
 fs.writeFileSync(path.join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
 npm(['install', '--prefix', consumer, '--ignore-scripts', '--no-audit', '--no-fund', tarball]);
@@ -82,4 +84,55 @@ const failure = JSON.parse(runNode([cli, 'storage-health', '--db', invalid, '--j
 assert.equal(failure.status, 'error');
 assert.equal(fs.readFileSync(invalid, 'utf8'), '{invalid');
 assert(!fs.existsSync(path.join(sandbox, 'config')), 'diagnostics must not load provider configuration');
-console.log(JSON.stringify({ status: 'PASS', version: manifest.version, tarball, integrity: pack.integrity, checks: ['pack allowlist', 'fresh install', 'library import', 'CLI version/help', 'durable write', 'storage health', 'explained recall', 'corrupt-store preservation', 'configuration isolation'] }, null, 2));
+
+// Exercise the real packaged CLI from a different cwd and all native layouts.
+const project = path.join(sandbox, 'project');
+fs.mkdirSync(project);
+const originalInstructions = '# Project\r\n\r\nPreserve this user guidance: \u03bb.\r\n';
+fs.writeFileSync(path.join(project, 'AGENTS.md'), originalInstructions);
+const catalog = JSON.parse(runNode([cli, 'skills', 'list', '--json']));
+assert.deepEqual(catalog.map(item => item.name).sort(), [...bundledNames].sort());
+assert.match(runNode([cli, 'skills', 'show', 'shadow-debug']), /diagnos/i);
+const preview = JSON.parse(runNode([cli, 'skills', 'install', project, '--target', 'all', '--json']));
+assert(preview.files.some(file => file.relativePath === '.dsh/skills/shadow-debug/SKILL.md'));
+assert.deepEqual(fs.readdirSync(project), ['AGENTS.md'], 'preview must not write directories or metadata');
+const install = JSON.parse(runNode([cli, 'skills', 'install', project, '--target', 'all', '--apply', '--json']));
+assert(install.created.length >= 24);
+assert(fs.readFileSync(path.join(project, 'AGENTS.md'), 'utf8').startsWith(originalInstructions));
+for (const skillRoot of ['.agents/skills', '.claude/skills', '.opencode/skills', '.dsh/skills']) {
+  for (const name of bundledNames) assert.equal(
+    fs.readFileSync(path.join(project, skillRoot, name, 'SKILL.md'), 'utf8'),
+    fs.readFileSync(path.join(installed, 'skills', name, 'SKILL.md'), 'utf8'),
+  );
+}
+const second = JSON.parse(runNode([cli, 'skills', 'install', project, '--target', 'all', '--apply', '--json']));
+assert.equal(second.created.length + second.updated.length, 0, 'installation must be idempotent');
+const customized = path.join(project, '.agents/skills/shadow-debug/SKILL.md');
+fs.appendFileSync(customized, '\nLocal user edit.\n');
+const changedBytes = fs.readFileSync(customized);
+const conflicts = JSON.parse(runNode([cli, 'skills', 'install', project, '--target', 'all', '--json'], 1));
+assert(conflicts.files.some(file => file.relativePath === '.agents/skills/shadow-debug/SKILL.md' && file.action === 'conflict'));
+assert.deepEqual(fs.readFileSync(customized), changedBytes);
+const simple = JSON.parse(runNode([cli, 'workflow', 'analyze', 'Fix the grammar in this sentence: she go home', '--json']));
+assert.equal(simple.mode, 'direct');
+assert.deepEqual(simple.skills, []);
+const planning = JSON.parse(runNode([cli, 'workflow', 'analyze', 'Plan a storage migration; do not edit files', '--json']));
+assert.equal(planning.mode, 'plan-only');
+assert(!planning.steps.some(step => ['implement', 'fix', 'release'].includes(step.id)));
+const requestFile = path.join(sandbox, 'request.txt');
+fs.writeFileSync(requestFile, 'Review this change and report findings');
+const review = JSON.parse(runNode([cli, 'workflow', 'analyze', '--request-file', requestFile, '--type', 'review', '--json']));
+assert.equal(review.taskType, 'review');
+assert(!review.steps.some(step => step.id === 'fix'));
+const workflowProbe = path.join(consumer, 'workflow-probe.mjs');
+fs.writeFileSync(workflowProbe, `import assert from 'node:assert/strict';
+import { analyzeTask, listBundledSkills, getBundledSkill, listWorkflowTargets, planSkillInstall } from '@theihtisham/agent-shadow-brain';
+assert.equal(listBundledSkills().length, 6);
+assert.match(getBundledSkill('shadow-workflow').content, /scope/i);
+assert.equal(listWorkflowTargets().find(t => t.target === 'deepseek-harness').skillRoot, '.dsh/skills');
+assert.equal(analyzeTask('Explain the result').mode, 'direct');
+assert(planSkillInstall({ projectDir: ${JSON.stringify(project)}, targets: ['codex'] }).files.some(f => f.action === 'conflict'));
+`);
+runNode([workflowProbe]);
+assert(!fs.existsSync(path.join(sandbox, 'config')), 'workflow/skills must not initialize provider configuration');
+console.log(JSON.stringify({ status: 'PASS', version: manifest.version, tarball, integrity: pack.integrity, checks: ['pack allowlist', 'fresh install', 'library import', 'CLI version/help', 'durable write', 'storage health', 'explained recall', 'corrupt-store preservation', 'configuration isolation', 'six packaged skills', 'all four client layouts', 'preview without writes', 'instruction preservation', 'idempotent install', 'local-edit conflict', 'workflow CLI/file/library'] }, null, 2));

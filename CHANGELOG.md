@@ -1,5 +1,14 @@
 # Changelog
 
+## [7.1.0] - 2026-11-11 - Focused Workflows and Portable Skills
+
+- Bundle six reusable skills for proportionate planning, implementation, diagnosis, review, research, and release work.
+- Add project-local skill installation for Codex, Claude Code, OpenCode, DeepSeek Harness, and compatible portable clients. Preview by default; preserve user instructions, reject conflicting local edits and stale plans, validate paths, and back up managed updates.
+- Add `skills list`, `skills show`, `skills targets`, `skills install`, and `workflow analyze` CLI commands.
+- Add read-only `workflow_analyze` and `workflow_skills` MCP tools and public library APIs.
+- Respect plan-only, diagnosis-only, and review-only scope in advisory routing. Add explicit task, mode, and complexity overrides; no provider calls or automatic task execution.
+- Verify skill packaging, fresh-consumer installation, safe update behavior, and representative task scenarios.
+
 
 ## [7.0.0] - 2026-11-11 - Durable Memory and Explained Recall
 

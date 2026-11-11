@@ -8,7 +8,7 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
 <meta name="color-scheme" content="dark light">
-<title>Shadow Brain v7.0 — Hive Mind Control</title>
+<title>Shadow Brain v7.1 — Hive Mind Control</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230a0e1a'/><path d='M50 50 L24 30 M50 50 L76 30 M50 50 L24 70 M50 50 L76 70' stroke='%23ffffff' stroke-opacity='0.28' stroke-width='3'/><circle cx='50' cy='50' r='12' fill='%2318ffff'/><circle cx='24' cy='30' r='7' fill='%2310e68c'/><circle cx='76' cy='30' r='7' fill='%23ffb53f'/><circle cx='24' cy='70' r='7' fill='%23a855f7'/><circle cx='76' cy='70' r='7' fill='%23ec4899'/></svg>">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
@@ -1072,7 +1072,7 @@ export const V6_DASHBOARD_HTML = `<!DOCTYPE html>
   </div>
 
   <div class="brand">
-    <div class="name">Shadow Brain <span style="color:var(--text-3);font-size:10px;font-weight:600">v7.0 Hive Mind</span></div>
+    <div class="name">Shadow Brain <span style="color:var(--text-3);font-size:10px;font-weight:600">v7.1 Hive Mind</span></div>
     <div class="state" id="brain-state">learning · reflecting · charging</div>
   </div>
 
@@ -2520,7 +2520,7 @@ function renderMemoryItems(items, emptyMessage) {
   if (!items || !items.length) return '<div class="empty-tight">' + htmlEscape(emptyMessage) + '</div>';
   return items.map(item => {
     const importancePct = item.importance !== undefined ? Math.round((item.importance || 0) * 100) + '%' : '';
-    // v7.0.0: real blended recall confidence (recency + importance + corroboration + usage + relevance).
+    // v7.1.0: real blended recall confidence (recency + importance + corroboration + usage + relevance).
     const conf = item.confidence && typeof item.confidence.score === 'number' ? item.confidence : null;
     const confCls = conf ? (conf.level === 'high' ? 'green' : conf.level === 'medium' ? 'yellow' : 'red') : '';
     const confBadge = conf ? '<span class="pill ' + confCls + '" title="Heuristic recall score (not probability of truth) ' + Math.round(conf.score * 100) + '% (' + htmlEscape(conf.level) + ') | relevance ' + conf.signals.relevance + ', creation-age recency ' + conf.signals.recency + ', importance ' + conf.signals.importance + ', matching-content agent reports ' + conf.signals.corroboration + ', usage ' + conf.signals.usage + '">\u2737 ' + Math.round(conf.score * 100) + '%</span>' : '';

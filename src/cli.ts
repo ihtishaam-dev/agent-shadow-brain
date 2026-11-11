@@ -12,8 +12,9 @@ import { detectRunningAgents, createAdapter } from './adapters/index.js';
 import { BaseAdapter } from './adapters/base-adapter.js';
 import { BrainConfig, BrainInsight, AgentTool, BrainPersonality, LLMProvider } from './types.js';
 import { checkForUpdate, formatUpdateNotice } from './brain/auto-update.js';
+import { registerWorkflowCommands } from './workflow-cli.js';
 
-const VERSION = '7.0.0';
+const VERSION = '7.1.0';
 
 // Defer config reads until a command actually needs provider settings.
 let savedConfig: Conf | undefined;
@@ -5224,6 +5225,7 @@ const recallExplainCmd = new Command('recall-explain')
 
 program.addCommand(storageHealthCmd);
 program.addCommand(recallExplainCmd);
+registerWorkflowCommands(program);
 program.parseAsync().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : 'Command failed.');
   process.exitCode = 1;
