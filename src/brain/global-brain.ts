@@ -90,6 +90,8 @@ interface RecallOptions {
   keywords?: string[];
   limit?: number;
   minImportance?: number;
+  /** Exclude curated memories before matching, corroboration, and candidate limits. */
+  excludeIds?: ReadonlySet<string>;
 }
 
 interface RecallMatch {
@@ -368,6 +370,7 @@ export class GlobalBrain {
       if (normalizeText(entry.content)) evidence.set(evidenceKey(entry), new Set());
     }
     for (const entry of this.entries.values()) {
+      if (opts.excludeIds?.has(entry.id)) continue;
       evidence.get(evidenceKey(entry))?.add(entry.agentTool);
     }
 
@@ -392,6 +395,7 @@ export class GlobalBrain {
     const minImportance = boundedSignal(opts.minImportance);
     const matches: RecallMatch[] = [];
     for (const entry of this.entries.values()) {
+      if (opts.excludeIds?.has(entry.id)) continue;
       if (opts.projectId && entry.projectId !== opts.projectId) continue;
       if (opts.agentTool && entry.agentTool !== opts.agentTool) continue;
       if (opts.category && entry.category !== opts.category) continue;
@@ -471,6 +475,18 @@ export class GlobalBrain {
       if (entry) out.push(entry);
     }
     return out;
+  }
+
+  /** Read one memory without exposing mutable in-memory state or recording a recall. */
+  getEntry(id: string): GlobalEntry | undefined {
+    const entry = this.entries.get(id);
+    return entry ? structuredClone(entry) : undefined;
+  }
+
+  /** Refresh the local read view without acknowledging or committing pending operations. */
+  refresh(): void {
+    this.initialize();
+    this.refreshSnapshot();
   }
 
   /** Chronological memory stream for dashboards and handoffs. */
@@ -626,7 +642,8 @@ export class GlobalBrain {
   private refreshSnapshot(): void {
     try {
       const { data, sizeMB } = this.readLatestSnapshot();
-      this.adoptSnapshot(data, sizeMB, this.hydrateEntries(data));
+      const view = this.pendingOperations.length ? this.mergeOperations(data, this.pendingOperations) : data;
+      this.adoptSnapshot(view, sizeMB, this.hydrateEntries(view));
       if (this.lastError?.code !== 'STORE_LOCK_FAILED') this.lastError = null;
     } catch (error) {
       throw this.recordError(error);

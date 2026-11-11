@@ -25,6 +25,18 @@ afterEach(() => {
 });
 
 describe('feature settings store', () => {
+  it('reads the original four-flag file without rewriting it and persists the new recording control on change', async () => {
+    fs.mkdirSync(path.dirname(filePath));
+    const legacy = { schemaVersion: 1, revision: 3, updatedAt: '2026-11-11T10:00:00.000Z',
+      features: { contextAssembly: true, crossProjectContext: false, automaticBriefing: false, liveActivity: false } };
+    fs.writeFileSync(filePath, JSON.stringify(legacy));
+    const bytes = fs.readFileSync(filePath);
+    expect(settings.get()).toMatchObject({ revision: 3, features: { activityRecording: true, automaticBriefing: false, liveActivity: false } });
+    expect(fs.readFileSync(filePath)).toEqual(bytes);
+    await settings.update({ activityRecording: false }, 3);
+    expect(JSON.parse(fs.readFileSync(filePath, 'utf8'))).toMatchObject({ revision: 4, features: { ...legacy.features, activityRecording: false } });
+  });
+
   it('returns fresh defaults without creating files or directories', () => {
     const initial = settings.get();
     expect(initial).toEqual({ schemaVersion: 1, revision: 0, updatedAt: null, features: DEFAULT_FEATURE_FLAGS });

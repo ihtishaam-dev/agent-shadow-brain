@@ -7,13 +7,14 @@ import * as fs from 'fs';
 import chokidar, { FSWatcher } from 'chokidar';
 import { WebSocketServer, WebSocket } from 'ws';
 import { Orchestrator } from '../brain/orchestrator.js';
-import { BrainInsight } from '../types.js';
+import { BrainInsight, type AgentTool } from '../types.js';
 import { AgentFirewall } from '../brain/agent-firewall.js';
 import { analyzeMemoryQuality, generateContextResumePack } from '../brain/context-continuity.js';
 import { getGlobalBrain, GlobalBrain } from '../brain/global-brain.js';
 import { getBrainBus, BrainActivityEvent } from '../brain/brain-bus.js';
 import { V6_DASHBOARD_HTML } from './v6-dashboard-html.js';
 import { WORKSPACE_HTML } from './workspace-html.js';
+import { LIVE_WORKSPACE_HTML } from './live-workspace-html.js';
 import { handleWorkspaceRequest } from './workspace-api.js';
 import { getFeatureSettings } from '../brain/feature-settings.js';
 
@@ -553,8 +554,11 @@ export class DashboardServer {
     if (url === '/' || url === '/index.html' || url === '/workspace') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
       res.end(WORKSPACE_HTML);
+    } else if (url === '/live' || url.startsWith('/live?')) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+      res.end(LIVE_WORKSPACE_HTML);
     } else if (url.startsWith('/api/workspace/')) {
-      void handleWorkspaceRequest(req, res);
+      void handleWorkspaceRequest(req, res, { projectDir: this.orchestrator.getStatus().projectDir });
     } else if (url === '/advanced' || url === '/hive' || url === '/v6' || url === '/hive.html') {
       // Existing advanced tools remain available with their original routes.
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
@@ -629,7 +633,7 @@ export class DashboardServer {
         const tokenReport = await tokens.report();
         const runtime = this.getRuntimeContext();
         return send({
-          version: '7.2.0',
+          version: '7.1.3',
           localFirst: true,
           runtime,
           totalAgentsConnected: brain.getStats().totalAgents,
@@ -1018,30 +1022,30 @@ export class DashboardServer {
       }
       case '/api/v6/agents-attach': {
         const { getHookInstaller } = await import('../brain/session-hooks.js');
+        const { ALL_ADAPTERS } = await import('../adapters/index.js');
+        if (typeof body.agent !== 'string' || !Object.hasOwn(ALL_ADAPTERS, body.agent)) return send({ ok: false, error: 'Choose a supported native hook target.' }, 400);
         const projectDir = (body.projectDir as string) || process.cwd();
         try {
-          const report = await getHookInstaller().attachAll(projectDir);
-          const filtered = {
-            ...report,
-            attached: report.attached.filter(a => a === body.agent),
-            failed: report.failed.filter(f => f.agent === body.agent),
-          };
-          return send({ ok: true, report: filtered });
+          const start = Date.now();
+          const hooks = await getHookInstaller().attach(body.agent as AgentTool, projectDir);
+          return send({ ok: hooks.length > 0, report: { detected: [], attached: hooks.length ? [body.agent] : [],
+            failed: hooks.length ? [] : [{ agent: body.agent, reason: 'No supported hook was installed.' }],
+            hooks, totalAgents: 1, durationMs: Date.now() - start } });
         } catch (err: any) {
           return send({ ok: false, error: err?.message ?? String(err) }, 500);
         }
       }
       case '/api/v6/agents-detach': {
         const { getHookInstaller } = await import('../brain/session-hooks.js');
+        const { ALL_ADAPTERS } = await import('../adapters/index.js');
+        if (typeof body.agent !== 'string' || !Object.hasOwn(ALL_ADAPTERS, body.agent)) return send({ ok: false, error: 'Choose a supported native hook target.' }, 400);
         const projectDir = (body.projectDir as string) || process.cwd();
         try {
-          const report = await getHookInstaller().detachAll(projectDir);
-          const filtered = {
-            ...report,
-            attached: report.attached.filter(a => a === body.agent),
-            failed: report.failed.filter(f => f.agent === body.agent),
-          };
-          return send({ ok: true, report: filtered });
+          const start = Date.now();
+          const detached = await getHookInstaller().detach(body.agent as AgentTool, projectDir);
+          return send({ ok: detached, report: { detected: [], attached: [], detached: detached ? [body.agent] : [],
+            failed: detached ? [] : [{ agent: body.agent, reason: 'No Shadow Brain hook found.' }],
+            hooks: [], totalAgents: 1, durationMs: Date.now() - start } });
         } catch (err: any) {
           return send({ ok: false, error: err?.message ?? String(err) }, 500);
         }

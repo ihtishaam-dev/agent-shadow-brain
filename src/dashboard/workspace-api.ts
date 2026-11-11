@@ -3,6 +3,11 @@ import { getGlobalBrain, type GlobalBrain } from '../brain/global-brain.js';
 import { getBrainBus } from '../brain/brain-bus.js';
 import { assembleContext } from '../brain/context-assembly.js';
 import { FEATURE_DEFINITIONS, getFeatureSettings, type FeatureSettingsStore } from '../brain/feature-settings.js';
+import { memoryAnnotationsFor, memoryState, type MemoryAnnotationsStore, type MemoryAnnotationSnapshot } from '../brain/memory-annotations.js';
+import { normalizeMemorySources } from '../brain/memory-sources.js';
+import { inspectClientIntegrations } from '../brain/client-integrations.js';
+import { activityJournalFor, type ActivityJournal } from '../brain/activity-journal.js';
+import { reportAgentActivity } from '../brain/activity-reporting.js';
 import type { AgentTool, BrainTimelineEvent, ScoredGlobalEntry } from '../types.js';
 
 const INVENTORY_LIMIT = 2500;
@@ -11,12 +16,14 @@ type Memory = BrainTimelineEvent | ScoredGlobalEntry;
 export interface WorkspaceDependencies {
   brain?: GlobalBrain;
   settings?: FeatureSettingsStore;
+  annotations?: MemoryAnnotationsStore;
+  projectDir?: string;
+  journal?: ActivityJournal;
+  demo?: boolean;
 }
 
 function sources(entry: Memory): string[] {
-  const metadata = entry.metadata ?? {};
-  const candidates: unknown[] = [metadata.source, metadata.sourceFile, metadata.filePath, ...(Array.isArray(metadata.sources) ? metadata.sources : [])];
-  return [...new Set(candidates.filter((item): item is string => typeof item === 'string' && !!item.trim()))].slice(0, 8);
+  return normalizeMemorySources(entry.metadata, { limit: 8, maxChars: 500 });
 }
 
 function date(value: unknown): string | null {
@@ -24,7 +31,7 @@ function date(value: unknown): string | null {
   return Number.isFinite(time) ? new Date(time).toISOString() : null;
 }
 
-function summary(entry: Memory) {
+function summary(entry: Memory, annotations?: MemoryAnnotationSnapshot) {
   const confidence = 'confidence' in entry ? entry.confidence : undefined;
   const matched = confidence?.explanation?.matchedKeywords ?? [];
   const refs = sources(entry);
@@ -33,6 +40,7 @@ function summary(entry: Memory) {
     category: entry.category, agent: entry.agentTool, project: entry.projectId, projectName: entry.projectName,
     source: refs[0] ?? '', sources: refs, updatedAt: date(entry.createdAt), score: confidence?.score,
     reasons: confidence ? [matched.length ? 'Matches: ' + matched.join(', ') : 'Ranked by importance, age, and recorded use.'] : [],
+    effectiveState: annotations ? memoryState(annotations, entry.projectId, entry.id) : 'active',
   };
 }
 
@@ -92,7 +100,8 @@ export async function handleWorkspaceRequest(req: IncomingMessage, res: ServerRe
     const url = new URL(req.url ?? '/', 'http://localhost');
     const route = url.pathname.slice('/api/workspace/'.length);
     const method = req.method ?? 'GET';
-    if (!['GET', 'POST'].includes(method) || (method === 'POST' && !['context', 'features'].includes(route))) return send({ error: 'Method not allowed.' }, 405);
+    const writes = ['memory-review', 'memory-link', 'memory-unlink'];
+    if (!['GET', 'POST'].includes(method) || (method === 'POST' && !['context', 'features', 'activity-report', ...writes].includes(route))) return send({ error: 'Method not allowed.' }, 405);
     const settings = dependencies.settings ?? getFeatureSettings();
     if (route === 'features') {
       if (method === 'POST') {
@@ -104,13 +113,42 @@ export async function handleWorkspaceRequest(req: IncomingMessage, res: ServerRe
       return send(settingsResponse(settings));
     }
     if (route === 'activity') return send(activity(settings.get().features.liveActivity));
-    if (!['overview', 'memories', 'graph', 'context'].includes(route)) return send({ error: 'Not found.' }, 404);
+    if (route === 'telemetry') {
+      const flags = settings.get().features;
+      const common = { checkedAt: new Date().toISOString(), liveEnabled: flags.liveActivity, recordingEnabled: flags.activityRecording, demo: dependencies.demo === true };
+      if (!flags.liveActivity) return send({ ...common, events: [], journalId: null, revision: 0, oldestSequence: null, latestSequence: 0,
+        nextAfterSequence: 0, cursor: 0, hasMore: false, gap: false, reset: false, retainedCount: 0, droppedCount: 0 });
+      const qs = url.searchParams;
+      const cursor = qs.get('cursor');
+      const journal = dependencies.journal ?? activityJournalFor(dependencies.brain ?? getGlobalBrain());
+      const page = journal.read({ afterSequence: cursor === null ? undefined : bounded(cursor, 0, Number.MAX_SAFE_INTEGER, 0),
+        journalId: query(qs, 'journalId'), projectId: query(qs, 'project'), limit: bounded(qs.get('limit'), 200, 200) });
+      return send({ ...common, ...page, cursor: page.nextAfterSequence });
+    }
+    if (route === 'activity-report') {
+      if (method !== 'POST') return send({ error: 'Use POST to report activity.' }, 405);
+      const input = await body(req);
+      return send(await reportAgentActivity(dependencies.brain ?? getGlobalBrain(), settings, input, dependencies.journal));
+    }
+    if (!['overview', 'memories', 'graph', 'context', 'memory', 'integrations', ...writes].includes(route)) return send({ error: 'Not found.' }, 404);
     if (route === 'context' && method !== 'POST') return send({ error: 'Use POST for context assembly.' }, 405);
+    if (writes.includes(route) && method !== 'POST') return send({ error: 'Use POST for memory changes.' }, 405);
+
+    const mutationInput = writes.includes(route) ? await body(req) : undefined;
+    if (mutationInput) {
+      if (!Number.isSafeInteger(mutationInput.expectedRevision) || Number(mutationInput.expectedRevision) < 0) throw new TypeError('A current expectedRevision is required.');
+      const allowed = route === 'memory-review' ? ['projectId', 'memoryId', 'state', 'note', 'expectedRevision'] :
+        route === 'memory-link' ? ['projectId', 'fromId', 'toId', 'type', 'note', 'expectedRevision'] : ['projectId', 'memoryId', 'linkId', 'expectedRevision'];
+      if (Object.keys(mutationInput).some(key => !allowed.includes(key))) throw new TypeError('Unknown memory change field.');
+    }
 
     const brain = dependencies.brain ?? getGlobalBrain();
+    if (route === 'integrations') return send(inspectClientIntegrations({ projectDir: dependencies.projectDir, brain }));
+    const annotationStore = dependencies.annotations ?? memoryAnnotationsFor(brain);
     const refresh = async () => {
       await brain.init();
-      await brain.sync();
+      if (writes.includes(route)) brain.refresh();
+      else await brain.sync();
       if (brain.getStorageHealth().lastError) throw new Error('The memory store could not be read. Check storage health.');
     };
     if (route === 'context') {
@@ -124,11 +162,50 @@ export async function handleWorkspaceRequest(req: IncomingMessage, res: ServerRe
       if (flags.contextAssembly) await refresh();
       const pack = assembleContext(brain, { projectId: input.projectId, query: input.query as string | undefined,
         tokenBudget: input.tokenBudget as number | undefined, includeCrossProject: input.includeCrossProject as boolean | undefined,
-        features: flags });
+        features: flags, annotations: flags.contextAssembly ? annotationStore.get() : undefined });
       return send(pack);
     }
 
     await refresh();
+    const annotations = annotationStore.get();
+    const qs = url.searchParams;
+    const requestedProject = query(qs, 'project');
+    if (route === 'memory') {
+      const id = query(qs, 'id');
+      if (!id || !requestedProject) throw new TypeError('Memory ID and project are required.');
+      const memory = brain.getEntry(id);
+      if (!memory || memory.projectId !== requestedProject) return send({ error: 'Memory not found in the selected project.' }, 404);
+      const endpoint = (memoryId: string) => {
+        const value = brain.getEntry(memoryId);
+        return value?.projectId === requestedProject ? value : undefined;
+      };
+      const links = annotations.links.filter(link => link.projectId === requestedProject && [link.fromId, link.toId].includes(id))
+        .map(link => ({ ...link, fromTitle: endpoint(link.fromId)?.content.slice(0, 130) ?? 'Unavailable memory',
+          toTitle: endpoint(link.toId)?.content.slice(0, 130) ?? 'Unavailable memory',
+          orphaned: !endpoint(link.fromId) || !endpoint(link.toId) }));
+      const history = annotations.history.filter(event => event.projectId === requestedProject &&
+        ((event.command.kind === 'review' && event.command.memoryId === id) ||
+          (event.command.kind === 'link' && [event.command.fromId, event.command.toId].includes(id)) ||
+          (event.relation && [event.relation.fromId, event.relation.toId].includes(id))));
+      const review = annotations.reviews[id]?.projectId === requestedProject ? annotations.reviews[id] : null;
+      return send({ memory: { ...summary(memory, annotations), content: memory.content, importance: memory.importance, createdAt: date(memory.createdAt) },
+        review, effectiveState: memoryState(annotations, requestedProject, id), links, revision: annotations.revision, history,
+        warnings: links.some(link => link.orphaned) ? ['A linked memory is no longer available. Recorded supersession remains until explicitly removed.'] : [] });
+    }
+    if (writes.includes(route)) {
+      const input = mutationInput!;
+      let command: unknown;
+      if (route === 'memory-review') command = { kind: 'review', projectId: input.projectId, memoryId: input.memoryId, state: input.state, ...(input.note !== undefined ? { note: input.note } : {}) };
+      else if (route === 'memory-link') command = { kind: 'link', projectId: input.projectId, fromId: input.fromId, toId: input.toId, type: input.type, ...(input.note !== undefined ? { note: input.note } : {}) };
+      else {
+        const memory = typeof input.memoryId === 'string' ? brain.getEntry(input.memoryId) : undefined;
+        const link = annotations.links.find(item => item.id === input.linkId && item.projectId === input.projectId && [item.fromId, item.toId].includes(String(input.memoryId)));
+        if (!memory || memory.projectId !== input.projectId || !link) return send({ error: 'Relationship not found in the selected memory and project.' }, 404);
+        command = { kind: 'unlink', linkId: input.linkId };
+      }
+      const committed = await annotationStore.update(command, input.expectedRevision as number);
+      return send({ revision: committed.revision, updatedAt: committed.updatedAt });
+    }
     const inventory = brain.timeline({ limit: INVENTORY_LIMIT });
     const projectMap = new Map<string, { id: string; name: string; memories: number; updatedAt: string | null }>();
     for (const entry of inventory) {
@@ -140,29 +217,48 @@ export async function handleWorkspaceRequest(req: IncomingMessage, res: ServerRe
     const facets = { projects, categories: [...new Set(inventory.map(entry => entry.category))].sort(), agents: [...new Set(inventory.map(entry => entry.agentTool))].sort() };
     const inventoryTruncated = brain.getStats().totalEntries > inventory.length;
     if (route === 'overview') {
-      return send({ version: '7.2.0', totals: { projects: projects.length, memories: brain.getStats().totalEntries, agents: facets.agents.length },
+      const scoped = inventory.filter(entry => !requestedProject || entry.projectId === requestedProject);
+      const quality = { total: scoped.length, sourceBacked: 0, active: 0, contested: 0, archived: 0, superseded: 0, reviewed: 0 };
+      for (const entry of scoped) {
+        quality[memoryState(annotations, entry.projectId, entry.id)]++;
+        if (sources(entry).length) quality.sourceBacked++;
+        if (annotations.reviews[entry.id]?.projectId === entry.projectId) quality.reviewed++;
+      }
+      return send({ version: '7.1.3', totals: { projects: projects.length, memories: brain.getStats().totalEntries, agents: facets.agents.length },
         projects, ...activity(settings.get().features.liveActivity), storageHealth: brain.getStorageHealth(),
-        features: settings.get().features, recentMemories: inventory.slice(0, 5).map(summary), truncated: inventoryTruncated,
+        features: settings.get().features, recentMemories: scoped.slice(0, 5).map(entry => summary(entry, annotations)), truncated: inventoryTruncated,
+        quality, scope: { projectId: requestedProject ?? null, basis: 'recent-inventory' },
         inventoryLimit: INVENTORY_LIMIT });
     }
-    const qs = url.searchParams;
     const projectId = query(qs, 'project');
     const category = query(qs, 'category');
     const agentTool = query(qs, 'agent') as AgentTool | undefined;
     const search = query(qs, 'q');
-    const entries: Memory[] = search ? brain.recallScored({ projectId, category, agentTool, keywords: search.split(/\s+/), limit: INVENTORY_LIMIT })
+    let entries: Memory[] = search ? brain.recallScored({ projectId, category, agentTool, keywords: search.split(/\s+/), limit: INVENTORY_LIMIT })
       : inventory.filter(entry => (!projectId || entry.projectId === projectId) && (!category || entry.category === category) && (!agentTool || entry.agentTool === agentTool));
+    const stateFilter = query(qs, 'state');
+    if (stateFilter && stateFilter !== 'all') {
+      if (!['active', 'archived', 'contested', 'superseded'].includes(stateFilter)) throw new TypeError('Unknown memory state.');
+      entries = entries.filter(entry => memoryState(annotations, entry.projectId, entry.id) === stateFilter);
+    }
     if (route === 'memories') {
       const limit = bounded(qs.get('limit'), 30, 100);
       const offset = bounded(qs.get('offset'), 0, INVENTORY_LIMIT, 0);
-      return send({ items: entries.slice(offset, offset + limit).map(summary), total: entries.length, facets, truncated: inventoryTruncated, inventoryLimit: INVENTORY_LIMIT });
+      return send({ items: entries.slice(offset, offset + limit).map(entry => summary(entry, annotations)), total: entries.length, facets, truncated: inventoryTruncated, inventoryLimit: INVENTORY_LIMIT });
     }
     const limit = bounded(qs.get('limit'), 100, 180);
     const nodes: Array<Record<string, unknown>> = [];
-    const edges: Array<{ source: string; target: string; kind: string }> = [];
+    const edges: Array<{ id?: string; source: string; target: string; kind: string; note?: string }> = [];
+    const selectedId = query(qs, 'memory');
+    const selected = selectedId ? brain.getEntry(selectedId) : undefined;
+    const shown = entries.slice(0, limit);
+    if (selected && (!projectId || selected.projectId === projectId) && !shown.some(entry => entry.id === selected.id)) {
+      if (shown.length >= limit) shown.pop();
+      shown.unshift(selected);
+    }
     const usedProjects = new Set<string>();
     const usedAgents = new Set<string>();
-    for (const entry of entries.slice(0, limit)) {
+    for (const entry of shown) {
       const projectNode = 'project:' + entry.projectId;
       const agentNode = 'agent:' + entry.agentTool;
       const memoryNode = 'memory:' + entry.id;
@@ -174,14 +270,22 @@ export async function handleWorkspaceRequest(req: IncomingMessage, res: ServerRe
         usedAgents.add(agentNode);
         nodes.push({ id: agentNode, kind: 'agent', label: entry.agentTool });
       }
-      const detail = summary(entry);
+      const detail = summary(entry, annotations);
       nodes.push({ id: memoryNode, kind: 'memory', label: detail.title, project: entry.projectId, category: entry.category,
-        snippet: detail.snippet, source: detail.source, agent: entry.agentTool, updatedAt: detail.updatedAt });
+        memoryId: entry.id, effectiveState: detail.effectiveState, snippet: detail.snippet, source: detail.source, agent: entry.agentTool, updatedAt: detail.updatedAt });
       edges.push({ source: projectNode, target: memoryNode, kind: 'belongs-to' }, { source: agentNode, target: memoryNode, kind: 'recorded-by' });
     }
-    return send({ nodes, edges, truncated: entries.length > limit || inventoryTruncated, shownMemories: Math.min(entries.length, limit), totalMemories: entries.length, facets });
+    const shownById = new Map(shown.map(entry => [entry.id, entry.projectId]));
+    for (const link of annotations.links) {
+      if (shownById.get(link.fromId) !== link.projectId || shownById.get(link.toId) !== link.projectId) continue;
+      edges.push({ id: link.id, source: 'memory:' + link.fromId, target: 'memory:' + link.toId, kind: link.type, note: link.note });
+    }
+    return send({ nodes, edges, truncated: entries.length > limit || inventoryTruncated, shownMemories: shown.length, totalMemories: entries.length, facets });
   } catch (error) {
     const code = (error as { code?: string }).code;
-    send({ error: error instanceof Error ? error.message : String(error), ...(code ? { code } : {}) }, code === 'FEATURE_SETTINGS_CONFLICT' ? 409 : code === 'FEATURE_SETTINGS_INVALID_PATCH' || error instanceof TypeError || error instanceof RangeError ? 400 : 500);
+    send({ error: error instanceof Error ? error.message : String(error), ...(code ? { code } : {}) },
+      code === 'FEATURE_SETTINGS_CONFLICT' || code === 'ANNOTATIONS_CONFLICT' ? 409 : code === 'ANNOTATIONS_NOT_FOUND' ? 404 :
+        code === 'FEATURE_SETTINGS_INVALID_PATCH' || code === 'ANNOTATIONS_INVALID_COMMAND' || code === 'ACTIVITY_JOURNAL_INVALID_EVENT' ||
+          code === 'ACTIVITY_JOURNAL_INVALID_CURSOR' || error instanceof TypeError || error instanceof RangeError ? 400 : 500);
   }
 }

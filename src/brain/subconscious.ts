@@ -5,6 +5,7 @@ import { assembleContext, contextQueryKeywords, type ContextPackEntry } from './
 import { FEATURE_SETTINGS_FILENAME, FeatureSettingsStore } from './feature-settings.js';
 import { getGlobalBrain, GlobalBrain } from './global-brain.js';
 import { L0Cache } from './l0-cache.js';
+import { memoryAnnotationsFor, type MemoryAnnotationsStore } from './memory-annotations.js';
 
 const DEFAULT_CONFIG: SubconsciousConfig = {
   enabled: true,
@@ -28,6 +29,7 @@ export class SubconsciousEngine {
   private config: SubconsciousConfig;
   private readonly brain: GlobalBrain;
   private readonly settings: Pick<FeatureSettingsStore, 'get'>;
+  private readonly annotations: Pick<MemoryAnnotationsStore, 'get'>;
   private readonly cache = new L0Cache<SubconsciousBriefing>({ bytesLimit: 2 * 1024 * 1024 });
   private readonly stats: SubconsciousStats = {
     totalBriefings: 0,
@@ -38,12 +40,18 @@ export class SubconsciousEngine {
     lastBriefing: null,
   };
 
-  constructor(config: Partial<SubconsciousConfig> = {}, brain?: GlobalBrain, settings?: Pick<FeatureSettingsStore, 'get'>) {
+  constructor(
+    config: Partial<SubconsciousConfig> = {},
+    brain?: GlobalBrain,
+    settings?: Pick<FeatureSettingsStore, 'get'>,
+    annotations?: Pick<MemoryAnnotationsStore, 'get'>,
+  ) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.brain = brain ?? getGlobalBrain();
     this.settings = settings ?? new FeatureSettingsStore({
       filePath: path.join(path.dirname(this.brain.dbPath), FEATURE_SETTINGS_FILENAME),
     });
+    this.annotations = annotations ?? memoryAnnotationsFor(this.brain);
   }
 
   /** Generate a session-start briefing from the current project and task. */
@@ -62,9 +70,11 @@ export class SubconsciousEngine {
     const projectId = opts.projectId ?? GlobalBrain.projectIdFor(opts.projectDir);
     const terms = contextQueryKeywords(opts.currentTask);
     await this.brain.init();
+    const annotations = this.annotations.get();
     const key = createHash('sha256').update(JSON.stringify({
       projectDir: opts.projectDir, projectId, agentTool: opts.agentTool, terms, config,
       includeCrossProject: opts.includeCrossProject, settings,
+      annotationRevision: annotations.revision,
       lastCommit: this.brain.getStorageHealth().lastSuccessfulSync,
     })).digest('hex');
     const cached = this.cache.get(key);
@@ -80,6 +90,7 @@ export class SubconsciousEngine {
       alwaysInclude: config.alwaysInclude,
       includeCrossProject: opts.includeCrossProject,
       features: settings.features,
+      annotations,
     });
     for (const entry of context.entries) this.addSection(briefing.sections, entry, projectId, opts.agentTool, terms.length > 0);
     briefing.fullText = context.markdown;

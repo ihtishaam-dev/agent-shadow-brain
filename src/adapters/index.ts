@@ -12,7 +12,8 @@ import { CursorAdapter } from './cursor.js';
 import { WindsurfAdapter } from './windsurf.js';
 import { CopilotAdapter } from './copilot.js';
 
-export const ALL_ADAPTERS: Record<AgentTool, () => AgentAdapter> = {
+/** File adapters are distinct from clients that connect through MCP and skills. */
+export const ALL_ADAPTERS: Record<Exclude<AgentTool, 'deepseek-harness'>, () => AgentAdapter> = {
   'claude-code': () => new ClaudeCodeAdapter(),
   'kilo-code': () => new KiloCodeAdapter(),
   'cline': () => new ClineAdapter(),
@@ -26,8 +27,8 @@ export const ALL_ADAPTERS: Record<AgentTool, () => AgentAdapter> = {
 };
 
 export function createAdapter(tool: AgentTool): AgentAdapter {
-  const factory = ALL_ADAPTERS[tool];
-  if (!factory) throw new Error(`Unknown agent tool: ${tool}`);
+  if (!Object.hasOwn(ALL_ADAPTERS, tool)) throw new Error(`No native file adapter for ${tool}. Use its MCP or project-skill integration.`);
+  const factory = ALL_ADAPTERS[tool as keyof typeof ALL_ADAPTERS];
   return factory();
 }
 

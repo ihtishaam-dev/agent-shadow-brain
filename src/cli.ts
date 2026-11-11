@@ -14,8 +14,11 @@ import { BrainConfig, BrainInsight, AgentTool, BrainPersonality, LLMProvider } f
 import { checkForUpdate, formatUpdateNotice } from './brain/auto-update.js';
 import { registerWorkflowCommands } from './workflow-cli.js';
 import { registerContextCommands } from './context-cli.js';
+import { registerCurationCommands } from './curation-cli.js';
+import { registerIntegrationCommands } from './integration-cli.js';
+import { registerActivityCommands } from './activity-cli.js';
 
-const VERSION = '7.2.0';
+const VERSION = '7.1.3';
 
 // Defer config reads until a command actually needs provider settings.
 let savedConfig: Conf | undefined;
@@ -988,6 +991,10 @@ const notifyCmd = new Command('notify')
 const mcpCmd = new Command('mcp')
   .description('Start Shadow Brain as an MCP (Model Context Protocol) server')
   .argument('[project-dir]', 'Project directory', process.cwd())
+  .option('--stdio', 'Serve the provider-free memory and workflow tools over standard input/output')
+  .option('--project-id <id>', 'Use an existing project ID for stdio activity attribution')
+  .option('--db <path>', 'Memory store for the standalone stdio service')
+  .option('--settings <path>', 'Feature settings for the standalone stdio service')
   .option('--port <port>', 'MCP server port', '7342')
   .option('--host <host>', 'MCP server host', 'localhost')
   .option('--auth-token <token>', 'Require this token for HTTP/SSE MCP requests')
@@ -995,6 +1002,11 @@ const mcpCmd = new Command('mcp')
   .option('-p, --provider <provider>', 'LLM provider')
   .option('-k, --api-key <key>', 'API key')
   .action(async (projectDir: string, opts: any) => {
+    if (opts.stdio) {
+      const { runMemoryMCPStdio } = await import('./brain/mcp-stdio.js');
+      await runMemoryMCPStdio({ dbPath: opts.db, settingsPath: opts.settings, projectDir, projectId: opts.projectId });
+      return;
+    }
     const brainConfig = mergeConfig({ ...opts, projectDir, watchMode: false });
     const orchestrator = new Orchestrator(brainConfig);
 
@@ -5228,6 +5240,9 @@ program.addCommand(storageHealthCmd);
 program.addCommand(recallExplainCmd);
 registerWorkflowCommands(program);
 registerContextCommands(program);
+registerCurationCommands(program);
+registerIntegrationCommands(program);
+registerActivityCommands(program);
 program.parseAsync().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : 'Command failed.');
   process.exitCode = 1;

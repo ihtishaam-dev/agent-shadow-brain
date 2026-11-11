@@ -45,6 +45,24 @@ function writeFixture(entries: Array<Record<string, unknown>>): void {
 }
 
 describe('GlobalBrain.recallScored', () => {
+  it('excludes curated IDs before limits and corroboration and returns isolated entry snapshots', async () => {
+    await brain.init();
+    const active = add({ content: 'orbit memory', importance: 0.1, metadata: { sources: ['demo.ts'] } });
+    const old = add({ content: 'orbit memory', importance: 1, agentTool: 'claude-code' });
+    const excluded = new Set([old]);
+    const selected = brain.recallScored({ keywords: ['orbit'], limit: 1, excludeIds: excluded });
+    expect(selected.map(entry => entry.id)).toEqual([active]);
+    expect(selected[0].confidence.explanation?.corroboratingAgents).toEqual([]);
+    expect(brain.recall({ keywords: ['orbit'], limit: 1, excludeIds: excluded })[0].id).toBe(active);
+    const copy = brain.getEntry(active)!;
+    copy.content = 'changed';
+    (copy.metadata.sources as string[]).push('changed.ts');
+    copy.createdAt.setFullYear(1900);
+    expect(brain.getEntry(active)).toMatchObject({ content: 'orbit memory', metadata: { sources: ['demo.ts'] } });
+    expect(brain.getEntry(active)!.createdAt.getFullYear()).not.toBe(1900);
+    expect(brain.getEntry('missing')).toBeUndefined();
+  });
+
   it('ranks actual matched terms and favors stronger fields over project name alone', async () => {
     await brain.init();
     const content = add({ content: 'Always validate webhook signatures before processing payloads' });

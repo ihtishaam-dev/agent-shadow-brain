@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { assembleContext, contextQueryKeywords } from '../../src/brain/context-assembly.js';
 import { FeatureSettingsStore } from '../../src/brain/feature-settings.js';
 import { GlobalBrain } from '../../src/brain/global-brain.js';
+import { memoryAnnotationsFor, type MemoryAnnotationSnapshot } from '../../src/brain/memory-annotations.js';
 import { getSubconscious, SubconsciousEngine } from '../../src/brain/subconscious.js';
 import type { GlobalEntry } from '../../src/types.js';
 
@@ -94,7 +95,9 @@ describe('bounded memory context', () => {
       duplicateIds: [duplicate], matchedKeywords: ['parser', 'replacement'], sources: ['docs/storage.md', 'design/source.txt'],
     });
     expect(result.entries[0].reasons).toContain('Matches 2 of 2 query terms.');
-    expect(result.excluded).toContainEqual({ id: duplicate, reason: 'duplicate' });
+    expect(result.excluded).toContainEqual({
+      id: duplicate, projectId: 'project-a', title: 'PARSER WRITES use', reason: 'duplicate',
+    });
     expect(result.markdown).toContain(primary);
     expect(result.markdown).toContain('Recorded references: docs/storage.md, design/source.txt');
     expect(JSON.stringify(result)).not.toContain('ignored metadata');
@@ -106,7 +109,7 @@ describe('bounded memory context', () => {
     const relevant = add({ content: 'Parser retries after durability errors.' });
     const pack = assembleContext(brain, { projectId: 'project-a', query: 'parser durability', maxEntries: 1 });
     expect(pack.entries.map(entry => entry.id)).toEqual([relevant]);
-    expect(pack.excluded).toEqual([{ id: weaker, reason: 'limit' }]);
+    expect(pack.excluded).toEqual([{ id: weaker, projectId: 'project-a', title: 'Parser notes.', reason: 'limit' }]);
 
     const candidates = brain.recallScored({ projectId: 'project-a', keywords: ['parser'] });
     const first = assembleContext(brain, { projectId: 'project-a', query: 'parser' });
@@ -142,7 +145,7 @@ describe('bounded memory context', () => {
     const opts = { projectId: 'project-a', query: 'parser', tokenBudget: 100, maxChars: 320 };
     const tight = assembleContext(brain, opts);
     expect(tight.entries.map(entry => entry.id)).toEqual([short]);
-    expect(tight.excluded).toContainEqual({ id: long, reason: 'budget' });
+    expect(tight.excluded).toContainEqual(expect.objectContaining({ id: long, reason: 'budget', projectId: 'project-a' }));
     expect(tight.budget).toEqual({
       tokenBudget: 100, maxChars: 320, usedChars: tight.markdown.length, estimatedTokens: Math.ceil(tight.markdown.length / 4),
     });
@@ -182,6 +185,103 @@ describe('bounded memory context', () => {
     expect(disabled).toMatchObject({ enabled: false, entries: [], markdown: '', warnings: ['Context assembly is disabled.'] });
     expect(source.recallScored).not.toHaveBeenCalled();
     expect(fs.readdirSync(dir)).toEqual([]);
+  });
+
+  it('excludes reviewed inactive memories before ranking caps and reports only the requested scope', async () => {
+    await brain.init();
+    const annotations: MemoryAnnotationSnapshot = { schemaVersion: 1, revision: 0, updatedAt: null, links: [], reviews: {}, history: [] };
+    const updatedAt = '2026-01-01T00:00:00.000Z';
+    for (let index = 0; index < 205; index++) {
+      const id = add({ content: 'Parser obsolete step ' + index, importance: 1 });
+      annotations.reviews[id] = { projectId: 'project-a', state: index === 0 ? 'contested' : 'archived', note: '', updatedAt };
+    }
+    const foreign = add({ projectId: 'project-b', content: 'Parser separate project' });
+    annotations.reviews[foreign] = { projectId: 'project-b', state: 'archived', note: '', updatedAt };
+    const active = add({ content: 'Parser current step', importance: 0.1 });
+    const result = assembleContext(brain, { projectId: 'project-a', query: 'parser', annotations });
+    expect(result.entries.map(entry => entry.id)).toEqual([active]);
+    expect(result.excluded).toHaveLength(200);
+    expect(result.excluded[0]).toMatchObject({ projectId: 'project-a', reason: 'contested' });
+    expect(JSON.stringify(result)).not.toContain(foreign);
+    expect(result.warnings.join(' ')).toContain('205 archived, contested, or superseded memories');
+  });
+
+  it('retains declared contradictions and relation provenance through duplicate collapse', async () => {
+    await brain.init();
+    const primary = add({ content: 'Parser accepts inline flags.', importance: 0.99 });
+    const duplicate = add({ content: ' PARSER accepts inline flags. ', importance: 0.1 });
+    const contested = add({ content: 'Parser rejects inline flags.' });
+    const store = memoryAnnotationsFor(brain);
+    await store.update({ kind: 'review', projectId: 'project-a', memoryId: contested, state: 'contested' });
+    const annotations = await store.update({
+      kind: 'link', projectId: 'project-a', fromId: duplicate, toId: contested, type: 'contradicts',
+      note: 'This note stays in the review history.',
+    });
+    const context = assembleContext(brain, { projectId: 'project-a', query: 'parser', annotations });
+    expect(context.entries).toMatchObject([{
+      id: primary, duplicateIds: [duplicate], state: 'active',
+      related: [{
+        id: annotations.links[0].id, memoryId: duplicate, otherMemoryId: contested, title: 'Parser rejects inline flags.',
+        direction: 'outgoing', type: 'contradicts',
+      }],
+    }]);
+    expect(context.markdown).toContain('Recorded contradiction with: ' + contested);
+    expect(context.markdown).not.toContain('This note stays');
+    expect(context.budget.usedChars).toBe(context.markdown.length);
+    expect(context.excluded).toContainEqual({
+      id: contested, projectId: 'project-a', title: 'Parser rejects inline flags.', reason: 'contested',
+    });
+  });
+
+  it('keeps a superseded memory out when its replacement disappears and allows explicit unlink', async () => {
+    await brain.init();
+    const old = add({ content: 'Parser legacy setting.', importance: 0.99 });
+    const replacement = add({ content: 'Parser current setting.' });
+    await brain.sync();
+    const store = memoryAnnotationsFor(brain);
+    const annotations = await store.update({
+      kind: 'link', projectId: 'project-a', fromId: replacement, toId: old, type: 'supersedes',
+    });
+    const opts = { projectId: 'project-a', query: 'parser' };
+    expect(assembleContext(brain, { ...opts, annotations }).entries.map(entry => entry.id)).toEqual([replacement]);
+
+    const snapshot = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+    snapshot.entries = snapshot.entries.filter((entry: GlobalEntry) => entry.id !== replacement);
+    fs.writeFileSync(dbPath, JSON.stringify(snapshot));
+    await brain.sync();
+    const orphaned = assembleContext(brain, { ...opts, annotations });
+    expect(orphaned.entries).toEqual([]);
+    expect(orphaned.excluded).toContainEqual({
+      id: old, projectId: 'project-a', title: 'Parser legacy setting.', reason: 'superseded',
+    });
+    expect(orphaned.warnings.some(warning => warning.includes('replacements became unavailable'))).toBe(true);
+    expect(JSON.stringify(orphaned)).not.toContain(replacement);
+    const restored = await store.update({ kind: 'unlink', linkId: annotations.links[0].id }, annotations.revision);
+    expect(assembleContext(brain, { ...opts, annotations: restored }).entries.map(entry => entry.id)).toEqual([old]);
+  });
+
+  it('omits titles and links when a stored annotation ID now belongs to another project', async () => {
+    await brain.init();
+    const local = add({ content: 'Parser local evidence.' });
+    const moved = add({ projectId: 'project-b', projectName: 'Synthetic Beta', content: 'Private fixture headline.' });
+    const at = '2026-01-01T00:00:00.000Z';
+    const annotations: MemoryAnnotationSnapshot = {
+      schemaVersion: 1, revision: 0, updatedAt: null, history: [],
+      reviews: { [moved]: { projectId: 'project-a', state: 'archived', note: '', updatedAt: at } },
+      links: [{ id: 'old-link', projectId: 'project-a', fromId: local, toId: moved, type: 'contradicts', note: '', createdAt: at }],
+    };
+    const options = { projectId: 'project-a', query: 'parser', annotations };
+    for (const pack of [
+      assembleContext(brain, options),
+      assembleContext(brain, {
+        ...options, includeCrossProject: true, features: { contextAssembly: true, crossProjectContext: true },
+      }),
+    ]) {
+      expect(pack.entries).toMatchObject([{ id: local, related: [] }]);
+      expect(pack.excluded).toEqual([]);
+      expect(JSON.stringify(pack)).not.toContain(moved);
+      expect(JSON.stringify(pack)).not.toContain('Private fixture headline');
+    }
   });
 });
 
@@ -259,5 +359,23 @@ describe('actual automatic briefings', () => {
     expect(general.fullText).toBe('');
     const task = await engine.generateBriefing({ ...briefingOptions, currentTask: 'parser' });
     expect(task.fullText).toContain('old evidence remains relevant');
+  });
+
+  it('invalidates a cached briefing after annotation commits and leaves memory bytes untouched', async () => {
+    await brain.init();
+    const id = add({ content: 'Parser annotation cache fixture.' });
+    await brain.sync();
+    const before = fs.readFileSync(dbPath);
+    const annotations = memoryAnnotationsFor(brain);
+    const engine = new SubconsciousEngine({}, brain, settings, annotations);
+    const options = { ...briefingOptions, currentTask: 'parser' };
+    const active = await engine.generateBriefing(options);
+    expect(active.fullText).toContain('annotation cache fixture');
+    expect((await engine.generateBriefing(options)).sessionId).toBe(active.sessionId);
+    await annotations.update({ kind: 'review', projectId: 'project-a', memoryId: id, state: 'archived' });
+    expect((await engine.generateBriefing(options)).fullText).toBe('');
+    expect(fs.readFileSync(dbPath)).toEqual(before);
+    await annotations.update({ kind: 'review', projectId: 'project-a', memoryId: id, state: 'active' });
+    expect((await engine.generateBriefing(options)).fullText).toContain('annotation cache fixture');
   });
 });

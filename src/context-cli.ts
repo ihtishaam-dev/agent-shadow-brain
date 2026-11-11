@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { getGlobalBrain, GlobalBrain } from './brain/global-brain.js';
 import { assembleContext } from './brain/context-assembly.js';
 import { FeatureSettingsStore, FEATURE_DEFINITIONS } from './brain/feature-settings.js';
+import { memoryAnnotationsFor } from './brain/memory-annotations.js';
 
 export function registerContextCommands(program: Command): void {
   program.command('context-pack').description('Build a bounded, explained project context pack without model calls')
@@ -25,6 +26,7 @@ export function registerContextCommands(program: Command): void {
         const pack = assembleContext(brain, {
           projectId: opts.projectId ?? GlobalBrain.projectIdFor(path.resolve(opts.project)),
           query, tokenBudget, includeCrossProject: !!opts.crossProject, features,
+          annotations: features.contextAssembly ? memoryAnnotationsFor(brain).get() : undefined,
         });
         if (opts.json) console.log(JSON.stringify(pack, null, 2));
         else {

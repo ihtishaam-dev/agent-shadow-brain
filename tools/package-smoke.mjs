@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { Script } from 'node:vm';
 
 // Test the packed artifact in a fresh consumer project, without touching user stores.
@@ -13,28 +14,38 @@ const consumer = path.join(sandbox, 'consumer');
 fs.mkdirSync(consumer);
 const expected = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 assert(process.env.npm_execpath, 'Run with npm run test:package');
+const childEnv = Object.fromEntries(['PATH', 'SystemRoot', 'WINDIR', 'ComSpec', 'PATHEXT', 'TEMP', 'TMP', 'TMPDIR', 'LANG', 'LC_ALL']
+  .filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
+const npmUserConfig = path.join(sandbox, 'npm-userconfig');
+const npmGlobalConfig = path.join(sandbox, 'npm-globalconfig');
+fs.writeFileSync(npmUserConfig, '');
+fs.writeFileSync(npmGlobalConfig, '');
 const npm = args => {
-  // npm 12 forwards its run-script permission through the environment, but
-  // rejects that option on nested local installs. Lifecycle scripts stay off.
-  const npmEnv = { ...process.env };
-  delete npmEnv.npm_config_allow_scripts;
-  delete npmEnv.NPM_CONFIG_ALLOW_SCRIPTS;
-  const result = spawnSync(process.execPath, [process.env.npm_execpath, ...args], {
-    cwd: root, encoding: 'utf8', timeout: 120_000, env: npmEnv,
+  const result = spawnSync(process.execPath, [process.env.npm_execpath, ...args,
+    '--userconfig', npmUserConfig, '--globalconfig', npmGlobalConfig,
+    '--cache', path.join(sandbox, 'npm-cache'), '--registry', 'https://registry.npmjs.org'], {
+    cwd: consumer, encoding: 'utf8', timeout: 240_000, env: childEnv,
   });
+  assert.equal(result.error, undefined);
   assert.equal(result.status, 0, result.stderr || result.stdout);
   return result.stdout;
 };
-const packOutput = JSON.parse(npm(['pack', '--json', '--ignore-scripts', '--pack-destination', sandbox]));
+const packOutput = JSON.parse(npm(['pack', root, '--json', '--ignore-scripts', '--pack-destination', sandbox]));
 const pack = Array.isArray(packOutput) ? packOutput[0] : Object.values(packOutput)[0];
 const tarball = path.join(sandbox, pack.filename);
+assert.equal('sha512-' + createHash('sha512').update(fs.readFileSync(tarball)).digest('base64'), pack.integrity);
 assert(pack.files.some(file => file.path === 'dist/brain/global-brain.js'));
+for (const file of ['activity-cli', 'curation-cli', 'brain/activity-journal', 'brain/memory-annotations', 'brain/mcp-stdio', 'dashboard/live-workspace-html']) {
+  assert(pack.files.some(entry => entry.path === 'dist/' + file + '.js'), 'missing packaged module ' + file);
+  assert(pack.files.some(entry => entry.path === 'dist/' + file + '.d.ts'), 'missing packaged declaration ' + file);
+}
 assert(pack.files.some(file => file.path === `docs/launch/RELEASE_NOTES_v${expected.version}.md`));
 const bundledNames = ['shadow-workflow', 'shadow-implement', 'shadow-debug', 'shadow-review', 'shadow-research', 'shadow-release'];
 for (const name of bundledNames) assert(pack.files.some(file => file.path === `skills/${name}/SKILL.md`));
 assert(pack.files.some(file => file.path === 'docs/assets/context-flow-v7.2.png'));
 assert(pack.files.some(file => file.path === 'docs/WORKSPACE.md'));
 assert(!pack.files.some(file => /(^|\/)(tests|node_modules|work|outputs|\.git|\.env|\.npmrc)(\/|$)/.test(file.path)));
+assert(!pack.files.some(file => /(^|\/)(global|memory-annotations|feature-settings|activity-journal)\.json$/.test(file.path)));
 fs.writeFileSync(path.join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
 npm(['install', '--prefix', consumer, '--ignore-scripts', '--no-audit', '--no-fund', tarball]);
 const installed = path.join(consumer, 'node_modules', '@theihtisham', 'agent-shadow-brain');
@@ -48,15 +59,17 @@ const isolatedHome = path.join(sandbox, 'home');
 fs.mkdirSync(isolatedHome);
 const preload = path.join(sandbox, 'isolate.mjs');
 fs.writeFileSync(preload, `import os from 'node:os';\nimport { syncBuiltinESMExports } from 'node:module';\nos.homedir = () => ${JSON.stringify(isolatedHome)};\nsyncBuiltinESMExports();\n`);
-const runNode = (args, status = 0) => {
+const runNode = (args, status = 0, input, configDir = path.join(sandbox, 'config')) => {
   const result = spawnSync(process.execPath, ['--import', pathToFileURL(preload).href, ...args], {
-    cwd: consumer, encoding: 'utf8', timeout: 30_000,
-    env: { ...process.env, SHADOW_BRAIN_CONFIG_DIR: path.join(sandbox, 'config') },
+    cwd: consumer, encoding: 'utf8', timeout: 30_000, input,
+    env: { ...childEnv, SHADOW_BRAIN_CONFIG_DIR: configDir },
   });
+  assert.equal(result.error, undefined);
   assert.equal(result.status, status, result.stderr || result.stdout);
   return result.stdout;
 };
 const cli = path.join(installed, 'dist', 'cli.js');
+assert.match(fs.readFileSync(cli, 'utf8'), /^#!\/usr\/bin\/env node/);
 assert.equal(runNode([cli, '--version']).trim(), expected.version);
 assert.match(runNode([cli, '--help']), /storage-health/);
 assert(!fs.existsSync(path.join(sandbox, 'config')), 'help/version must not load or create configuration');
@@ -66,7 +79,8 @@ fs.writeFileSync(probe, `import assert from 'node:assert/strict';
 import { getGlobalBrain } from '@theihtisham/agent-shadow-brain';
 const brain = getGlobalBrain({ dbPath: ${JSON.stringify(db)}, syncIntervalMs: 60000 });
 await brain.init();
-brain.writeSync({ projectId: 'fixture', projectName: 'Fixture', agentTool: 'codex', category: 'lesson', content: 'Verify durable storage before publishing', importance: 0.8, metadata: {} });
+brain.writeSync({ projectId: 'fixture', projectName: 'Fixture', agentTool: 'codex', category: 'lesson', content: 'Verify durable storage before publishing', importance: 0.8, metadata: { sourceFile: 'docs/storage.md' } });
+brain.writeSync({ projectId: 'fixture', projectName: 'Fixture', agentTool: 'deepseek-harness', category: 'decision', content: 'Keep the replacement procedure under review', importance: 0.6, metadata: {} });
 assert.equal(brain.getStorageHealth().status, 'pending');
 await brain.sync();
 assert.equal(brain.getStorageHealth().status, 'healthy');
@@ -146,7 +160,8 @@ assert(context.budget.estimatedTokens <= 250);
 const featureFile = path.join(sandbox, 'flags.json');
 const defaults = JSON.parse(runNode([cli, 'features', 'list', '--settings', featureFile]));
 assert.equal(defaults.features.crossProjectContext, false);
-assert.equal(defaults.definitions.length, 4);
+assert.equal(defaults.definitions.length, 5);
+assert.equal(defaults.features.activityRecording, true);
 assert(!fs.existsSync(featureFile), 'listing default settings must not create a file');
 const disabled = JSON.parse(runNode([cli, 'features', 'set', 'contextAssembly', 'off', '--settings', featureFile]));
 assert.equal(disabled.features.contextAssembly, false);
@@ -160,8 +175,145 @@ const pack = assembleContext({recallScored() { throw new Error('Disabled context
 assert.equal(pack.enabled, false);
 `);
 runNode([contextProbe]);
-const { WORKSPACE_HTML } = await import(pathToFileURL(path.join(installed, 'dist/dashboard/workspace-html.js')).href);
-assert(WORKSPACE_HTML.includes('Memory relationships'));
-for (const [, script] of WORKSPACE_HTML.matchAll(/<script>([\s\S]*?)<\/script>/g)) new Script(script);
-assert(!fs.existsSync(path.join(sandbox, 'config')), 'workflow/skills must not initialize provider configuration');
-console.log(JSON.stringify({ status: 'PASS', version: manifest.version, tarball, integrity: pack.integrity, checks: ['pack allowlist', 'fresh install', 'library import', 'CLI version/help', 'durable write', 'storage health', 'explained recall', 'corrupt-store preservation', 'configuration isolation', 'six packaged skills', 'all four client layouts', 'preview without writes', 'instruction preservation', 'idempotent install', 'local-edit conflict', 'workflow CLI/file/library', 'scoped context CLI/library', 'persistent feature controls', 'disabled memory-read bypass', 'workspace scripts and artwork'] }, null, 2));
+
+const memoryId = recalls[0].id;
+const replacementId = JSON.parse(before).entries.find(entry => entry.agentTool === 'deepseek-harness').id;
+const curationFlags = ['--project-id', 'fixture', '--db', db];
+const readContext = () => JSON.parse(runNode([cli, 'context-pack', 'durable storage', ...curationFlags, '--token-budget', '250', '--json']));
+const archive = JSON.parse(runNode([cli, 'curate', 'review', memoryId, 'archived', ...curationFlags, '--revision', '0']));
+assert.equal(archive.state, 'archived');
+assert.equal(archive.revision, 1);
+const archivedContext = readContext();
+assert.equal(archivedContext.entries.length, 0);
+assert(archivedContext.excluded.some(entry => entry.id === memoryId && entry.reason === 'archived' && entry.title.includes('durable storage')));
+runNode([cli, 'curate', 'review', memoryId, 'active', ...curationFlags, '--revision', '1']);
+const relation = JSON.parse(runNode([cli, 'curate', 'link', replacementId, memoryId, 'supersedes', ...curationFlags, '--revision', '2']));
+assert.equal(relation.link.type, 'supersedes');
+const detail = JSON.parse(runNode([cli, 'curate', 'show', memoryId, ...curationFlags]));
+assert.equal(detail.state, 'superseded');
+assert.deepEqual(detail.sources, ['docs/storage.md']);
+assert(readContext().excluded.some(entry => entry.id === memoryId && entry.reason === 'superseded'));
+runNode([cli, 'curate', 'unlink', relation.link.id, ...curationFlags, '--revision', '3']);
+assert.equal(readContext().entries[0].id, memoryId);
+assert.deepEqual(fs.readFileSync(db), before, 'curation must preserve raw memory bytes');
+
+const reported = JSON.parse(runNode([cli, 'activity', 'report', 'phase', ...curationFlags,
+  '--session', 'package-fixture', '--agent', 'deepseek-harness', '--phase', 'verify']));
+assert.equal(reported.recorded, true);
+assert.equal(reported.event.source, 'reported');
+const firstTail = JSON.parse(runNode([cli, 'activity', 'tail', ...curationFlags]));
+assert.equal(firstTail.events.length, 1);
+assert.equal(firstTail.events[0].id, reported.event.id);
+assert.equal(firstTail.cursor, reported.event.sequence);
+
+const guardConfig = path.join(sandbox, 'stdio-provider-canary');
+fs.mkdirSync(guardConfig);
+const guardFile = path.join(guardConfig, 'config.json');
+fs.writeFileSync(guardFile, 'invalid synthetic provider configuration');
+const call = (id, name, args = {}) => ({ jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args } });
+const stdioInput = [
+  { jsonrpc: '2.0', id: 1, method: 'initialize', params: {
+    protocolVersion: '2025-06-18', clientInfo: { name: 'codex', version: '1' }, capabilities: {},
+  } },
+  { jsonrpc: '2.0', method: 'notifications/initialized' },
+  { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+  call(3, 'context_pack', { projectId: 'fixture', query: 'durable storage', tokenBudget: 250 }),
+  call(4, 'activity_report', { kind: 'phase', phase: 'work', projectId: 'fixture', sessionId: 'host-fixture', agent: 'deepseek-harness' }),
+  call(5, 'activity_report', { kind: 'phase', phase: 'plan', source: 'measured' }),
+  call(6, 'auto_config'),
+].map(value => JSON.stringify(value)).join('\n') + '\n';
+const replies = runNode([cli, 'mcp', '--stdio', '--db', db], 0, stdioInput, guardConfig).trim().split(/\r?\n/).map(line => JSON.parse(line));
+assert.deepEqual(replies.map(reply => reply.id), [1, 2, 3, 4, 5, 6]);
+assert.equal(replies[0].result.protocolVersion, '2025-06-18');
+const tools = replies[1].result.tools;
+assert.equal(tools.filter(tool => tool.annotations.readOnlyHint === true).length, 9);
+assert.deepEqual(tools.filter(tool => tool.annotations.readOnlyHint === false).map(tool => tool.name), ['activity_report']);
+assert.equal(JSON.parse(replies[2].result.content[0].text).entries[0].id, memoryId);
+assert.equal(JSON.parse(replies[3].result.content[0].text).event.source, 'reported');
+assert.equal(replies[4].error.code, -32602);
+assert.equal(replies[5].error.code, -32601);
+assert.equal(fs.readFileSync(guardFile, 'utf8'), 'invalid synthetic provider configuration');
+const newTail = JSON.parse(runNode([cli, 'activity', 'tail', ...curationFlags,
+  '--cursor', String(firstTail.cursor), '--journal-id', firstTail.journalId]));
+assert(newTail.events.some(event => event.source === 'measured' && event.kind === 'tool-start' && event.tool === 'context_pack'));
+assert(newTail.events.some(event => event.source === 'measured' && event.kind === 'tool-end' && event.tool === 'context_pack' &&
+  Number.isFinite(event.durationMs) && event.outcome === 'success'));
+assert(newTail.events.some(event => event.source === 'reported' && event.phase === 'work'));
+const journalText = fs.readFileSync(path.join(sandbox, 'activity-journal.json'), 'utf8');
+assert(!journalText.includes('durable storage'));
+assert(!journalText.includes('invalid synthetic provider configuration'));
+assert.deepEqual(fs.readFileSync(db), before, 'activity and stdio must preserve raw memory bytes');
+const publicProbe = path.join(consumer, 'public-probe.mjs');
+fs.writeFileSync(publicProbe, `import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import {
+  DashboardServer, ActivityJournal, activityJournalFor, MemoryAnnotationsStore, memoryAnnotationsFor,
+  memoryState, normalizeMemorySources, CLIENT_CAPABILITIES, inspectClientIntegrations,
+  reportAgentActivity, serveMCPStdio, runMemoryMCPStdio, getGlobalBrain,
+} from '@theihtisham/agent-shadow-brain';
+const brain = getGlobalBrain({ dbPath: ${JSON.stringify(db)}, syncIntervalMs: 60000 });
+const annotations = memoryAnnotationsFor(brain);
+assert(annotations instanceof MemoryAnnotationsStore);
+assert.equal(annotations.get().revision, 4);
+assert.equal(memoryState(annotations.get(), 'fixture', ${JSON.stringify(memoryId)}), 'active');
+assert.deepEqual(normalizeMemorySources({ sourceFile: 'docs/storage.md' }), ['docs/storage.md']);
+assert(activityJournalFor(brain) instanceof ActivityJournal);
+assert(activityJournalFor(brain).get().events.some(event => event.source === 'measured'));
+assert(CLIENT_CAPABILITIES.some(client => client.id === 'deepseek-harness'));
+const integrations = inspectClientIntegrations({ projectDir: ${JSON.stringify(project)}, brain });
+assert.equal(integrations.agents.find(client => client.id === 'deepseek-harness').installation, 'complete');
+assert.equal(typeof reportAgentActivity, 'function');
+assert.equal(typeof serveMCPStdio, 'function');
+assert.equal(typeof runMemoryMCPStdio, 'function');
+const projectDir = ${JSON.stringify(project)};
+const orchestrator = Object.assign(new EventEmitter(), {
+  getStatus: () => ({ projectDir, agents: [] }), getLastHealthScore: () => null, getLastFixes: () => [],
+});
+const dashboard = new DashboardServer(orchestrator, { host: '127.0.0.1', port: 0 });
+try {
+  const url = await dashboard.start();
+  const live = await fetch(url + '/live');
+  assert.equal(live.status, 200);
+  assert.match(live.headers.get('content-type'), /^text\\/html/);
+  assert.match(await live.text(), /<h1>Live operations<\\/h1>/);
+  const telemetry = await fetch(url + '/api/workspace/telemetry?project=fixture');
+  assert.equal(telemetry.status, 200);
+  const page = await telemetry.json();
+  assert(page.events.some(event => event.source === 'measured'));
+  assert(page.events.some(event => event.source === 'reported'));
+} finally {
+  await dashboard.stop();
+  await brain.shutdown();
+}
+`);
+runNode([publicProbe]);
+
+for (const [modulePath, name, marker] of [
+  ['workspace-html', 'WORKSPACE_HTML', 'Memory relationships'],
+  ['live-workspace-html', 'LIVE_WORKSPACE_HTML', 'Live operations'],
+]) {
+  const loaded = await import(pathToFileURL(path.join(installed, 'dist/dashboard', modulePath + '.js')).href);
+  const html = loaded[name];
+  assert(html.includes(marker));
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+  assert(scripts.length > 0);
+  for (const [, script] of scripts) new Script(script);
+}
+const readme = fs.readFileSync(path.join(installed, 'README.md'), 'utf8');
+const packedPaths = new Set(pack.files.map(file => file.path));
+for (const [, target] of readme.matchAll(/!\[[^\]]*]\((docs\/assets\/[^)]+\.png)\)/g)) {
+  assert(packedPaths.has(target), 'README image is missing from tarball: ' + target);
+  const png = fs.readFileSync(path.join(installed, target));
+  assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+}
+assert(!fs.existsSync(path.join(sandbox, 'config')), 'isolated memory, workflow, activity and workspace probes must avoid provider configuration');
+console.log(JSON.stringify({
+  status: 'PASS', version: manifest.version, tarball, integrity: pack.integrity,
+  checks: ['pack allowlist and SHA-512 integrity', 'fresh install', 'public exports and declarations',
+    'CLI version/help', 'durable write', 'storage health', 'explained recall', 'corrupt-store preservation',
+    'configuration isolation', 'six packaged skills', 'all four client layouts', 'preview without writes',
+    'instruction preservation', 'idempotent install', 'local-edit conflict', 'workflow CLI/file/library',
+    'scoped context CLI/library', 'persistent feature controls', 'disabled memory-read bypass',
+    'curation CLI and context suppression', 'activity CLI and cursor', 'stdio handshake and tool permissions',
+    'measured and reported metadata without tool arguments', 'served live workspace and telemetry', 'workspace scripts and README artwork'],
+}, null, 2));

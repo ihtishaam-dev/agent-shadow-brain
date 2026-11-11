@@ -9,8 +9,9 @@
 //
 // Zero new dependencies. Pure in-memory derivation from the global brain.
 
-import { GlobalEntry } from '../types.js';
+import type { GlobalEntry } from '../types.js';
 import { getGlobalBrain } from './global-brain.js';
+import { normalizeMemorySources } from './memory-sources.js';
 
 export type MemoryGraphNodeType = 'memory' | 'project' | 'agent' | 'tag';
 export type MemoryGraphEdgeType = 'belongs' | 'wrote' | 'tagged' | 'related';
@@ -60,29 +61,23 @@ export interface MemoryGraphBuildOptions {
   maxRelatedPerNode?: number; // cap memory<->memory edges per node (default 6)
 }
 
+function boundedInteger(n: number | undefined, fallback: number, lo: number, hi: number): number {
+  return typeof n === 'number' && Number.isFinite(n) ? Math.max(lo, Math.min(hi, Math.trunc(n))) : fallback;
+}
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
 export class MemoryGraph {
   /** Build a constellation snapshot from the current global brain. */
   async build(opts: MemoryGraphBuildOptions = {}): Promise<MemoryGraphSnapshot> {
-    const limit = clamp(opts.limit ?? 400, 1, 2000);
-    const maxNodes = clamp(opts.maxNodes ?? 180, 20, 600);
-    const maxRelated = clamp(opts.maxRelatedPerNode ?? 6, 1, 20);
+    const limit = boundedInteger(opts.limit, 400, 1, 2000);
+    const maxNodes = boundedInteger(opts.maxNodes, 180, 20, 600);
+    const maxRelated = boundedInteger(opts.maxRelatedPerNode, 6, 1, 20);
     const minImportance = opts.minImportance ?? 0;
 
-    let entries: GlobalEntry[] = [];
-    let projectScoped = false;
-    try {
-      const brain = getGlobalBrain();
-      await brain.init();
-      if (opts.projectId) {
-        entries = brain.recall({ projectId: opts.projectId, minImportance, limit });
-        projectScoped = entries.length > 0;
-      }
-      if (!entries.length) entries = brain.recall({ minImportance, limit });
-    } catch {
-      entries = [];
-    }
+    const brain = getGlobalBrain();
+    await brain.init();
+    const projectScoped = !!opts.projectId;
+    const entries = brain.recall({ projectId: opts.projectId, minImportance, limit });
 
     if (!entries.length) {
       return {
@@ -117,11 +112,6 @@ export class MemoryGraph {
       if (typeof raw === 'string') return raw.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
       return [];
     };
-    const sourcesOf = (e: GlobalEntry): string[] => {
-      const raw = (e.metadata as Record<string, unknown>)?.sources;
-      return Array.isArray(raw) ? raw.map(String) : [];
-    };
-
     // ── Build typed nodes + structural edges ────────────────────────────────
     const memTags = new Map<string, Set<string>>();
     for (const e of entries) {
@@ -132,7 +122,7 @@ export class MemoryGraph {
         agentTool: e.agentTool,
         category: e.category,
         importance: e.importance,
-        sources: sourcesOf(e),
+        sources: normalizeMemorySources(e.metadata),
         tags: tagsOf(e),
         createdAt: e.createdAt,
       });
