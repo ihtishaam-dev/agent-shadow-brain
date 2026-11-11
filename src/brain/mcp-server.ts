@@ -3,7 +3,23 @@
 // v6.0.0 — Hive Mind Edition (Cursor + Claude Code + Codex + Copilot + sub-agent frameworks)
 
 import * as http from 'http';
+import { randomUUID } from 'node:crypto';
+import * as path from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { MCPRequest, MCPResponse, MCPTool, MCPServerOptions, SymbolInfo } from '../types.js';
+import type { GlobalBrain } from './global-brain.js';
+import type { FeatureSettingsStore } from './feature-settings.js';
+import type { ActivityEventInput } from './activity-journal.js';
+
+export interface MCPMemoryDependencies {
+  brain?: GlobalBrain;
+  settings?: FeatureSettingsStore;
+  projectDir?: string;
+  projectId?: string;
+}
+
+const MEMORY_TOOLS = new Set(['global_recall', 'global_recall_scored', 'global_stats', 'global_storage_health',
+  'global_timeline', 'workflow_analyze', 'workflow_skills', 'context_pack', 'feature_flags', 'activity_report']);
 
 interface SSEClient {
   res: http.ServerResponse;
@@ -17,14 +33,19 @@ export class MCPServer {
   private sseClients: Map<string, SSEClient> = new Map();
   private lastHealthScore: number | null = null;
   private toolHandlers: Record<string, (params: Record<string, unknown>) => Promise<unknown>>;
+  private readonly telemetrySession = 'mcp-' + randomUUID();
+  private telemetryAgent = 'mcp-client';
+  private telemetryInitialized = false;
+  private telemetryWarning = false;
 
-  constructor(orchestrator: any, options?: MCPServerOptions) {
+  constructor(orchestrator: any, options?: MCPServerOptions, private readonly dependencies: MCPMemoryDependencies = {}) {
     this.orchestrator = orchestrator;
     this.options = {
       port: options?.port ?? 7342,
       host: options?.host ?? 'localhost',
       authToken: options?.authToken ?? process.env.SHADOW_BRAIN_MCP_TOKEN ?? '',
       corsOrigin: options?.corsOrigin ?? `http://${options?.host ?? 'localhost'}:${options?.port ?? 7342}`,
+      toolProfile: options?.toolProfile ?? 'full',
     };
 
     this.toolHandlers = {
@@ -57,6 +78,7 @@ export class MCPServer {
       workflow_skills: this.handleWorkflowSkills.bind(this),
       context_pack: this.handleContextPack.bind(this),
       feature_flags: this.handleFeatureFlags.bind(this),
+      activity_report: this.handleActivityReport.bind(this),
       attach_status: this.handleAttachStatus.bind(this),
       global_timeline: this.handleGlobalTimeline.bind(this),
       firewall_check: this.handleFirewallCheck.bind(this),
@@ -341,10 +363,10 @@ export class MCPServer {
     const tokens = getTokenEconomy();
     const formal = getFormalBridge();
     const airgap = getAirGapMode();
-    const brain = getGlobalBrain();
+    const brain = this.dependencies.brain ?? getGlobalBrain();
     await Promise.all([sabb.init(), causal.init(), collisions.init(), dream.init(), rep.init(), tokens.init(), formal.init(), airgap.init(), brain.init()]);
     return {
-      version: '7.2.0',
+      version: '7.1.3',
       modules: {
         sabb: sabb.getStats(),
         causal: causal.stats(),
@@ -379,7 +401,7 @@ export class MCPServer {
 
   private async handleGlobalRecall(params: Record<string, unknown>): Promise<unknown> {
     const { getGlobalBrain } = await import('./global-brain.js');
-    const brain = getGlobalBrain();
+    const brain = this.dependencies.brain ?? getGlobalBrain();
     await brain.init();
     return brain.recall({
       projectId: params.projectId as string | undefined,
@@ -393,7 +415,7 @@ export class MCPServer {
 
   private async handleGlobalRecallScored(params: Record<string, unknown>): Promise<unknown> {
     const { getGlobalBrain } = await import('./global-brain.js');
-    const brain = getGlobalBrain();
+    const brain = this.dependencies.brain ?? getGlobalBrain();
     await brain.init();
     return brain.recallScored({
       projectId: params.projectId as string | undefined,
@@ -409,7 +431,7 @@ export class MCPServer {
   private async handleGlobalStats(_params: Record<string, unknown>): Promise<unknown> {
     const { getGlobalBrain } = await import('./global-brain.js');
     const { getAllCacheStats } = await import('./l0-cache.js');
-    const brain = getGlobalBrain();
+    const brain = this.dependencies.brain ?? getGlobalBrain();
     await brain.init();
     return {
       brain: brain.getStats(),
@@ -419,7 +441,7 @@ export class MCPServer {
 
   private async handleGlobalStorageHealth(_params: Record<string, unknown>): Promise<unknown> {
     const { getGlobalBrain } = await import('./global-brain.js');
-    return getGlobalBrain().getStorageHealth();
+    return (this.dependencies.brain ?? getGlobalBrain()).getStorageHealth();
   }
 
   private async handleWorkflowAnalyze(params: Record<string, unknown>): Promise<unknown> {
@@ -433,7 +455,7 @@ export class MCPServer {
 
   private async handleWorkflowSkills(params: Record<string, unknown>): Promise<unknown> {
     const { getBundledSkill, listBundledSkills } = await import('./workflow-skills.js');
-    if (params.name !== undefined && typeof params.name !== 'string') throw new Error('name must be a bundled skill name.');
+    if (params.name !== undefined && typeof params.name !== 'string') throw new TypeError('name must be a bundled skill name.');
     return params.name === undefined ? listBundledSkills() : getBundledSkill(params.name as string);
   }
 
@@ -445,20 +467,22 @@ export class MCPServer {
     if (params.query !== undefined && typeof params.query !== 'string') throw new TypeError('Query must be text.');
     if (params.tokenBudget !== undefined && (!Number.isSafeInteger(params.tokenBudget) || Number(params.tokenBudget) < 0 || Number(params.tokenBudget) > 12000)) throw new TypeError('Token budget must be an integer from 0 to 12000.');
     if (params.includeCrossProject !== undefined && typeof params.includeCrossProject !== 'boolean') throw new TypeError('Cross-project choice must be boolean.');
-    const features = getFeatureSettings().get().features;
-    const brain = getGlobalBrain();
+    const features = (this.dependencies.settings ?? getFeatureSettings()).get().features;
+    const brain = this.dependencies.brain ?? getGlobalBrain();
     if (features.contextAssembly) {
       await brain.init();
       await brain.sync();
       if (brain.getStorageHealth().lastError) throw new Error('Memory store is not readable. Check global_storage_health.');
     }
+    const { memoryAnnotationsFor } = await import('./memory-annotations.js');
     return assembleContext(brain, { projectId: params.projectId, query: params.query as string | undefined,
-      tokenBudget: params.tokenBudget as number | undefined, includeCrossProject: params.includeCrossProject as boolean | undefined, features });
+      tokenBudget: params.tokenBudget as number | undefined, includeCrossProject: params.includeCrossProject as boolean | undefined, features,
+      annotations: features.contextAssembly ? memoryAnnotationsFor(brain).get() : undefined });
   }
 
   private async handleFeatureFlags(_params: Record<string, unknown>): Promise<unknown> {
     const { getFeatureSettings, FEATURE_DEFINITIONS } = await import('./feature-settings.js');
-    return { ...getFeatureSettings().get(), definitions: FEATURE_DEFINITIONS };
+    return { ...(this.dependencies.settings ?? getFeatureSettings()).get(), definitions: FEATURE_DEFINITIONS };
   }
 
   private async handleAttachStatus(params: Record<string, unknown>): Promise<unknown> {
@@ -471,7 +495,7 @@ export class MCPServer {
   private async handleGlobalTimeline(params: Record<string, unknown>): Promise<unknown> {
     const { getGlobalBrain, GlobalBrain } = await import('./global-brain.js');
     const projectDir = params.projectDir as string | undefined;
-    const brain = getGlobalBrain();
+    const brain = this.dependencies.brain ?? getGlobalBrain();
     await brain.init();
     return brain.timeline({
       projectId: projectDir ? GlobalBrain.projectIdFor(projectDir) : params.projectId as string | undefined,
@@ -583,7 +607,7 @@ export class MCPServer {
         // Lightweight health endpoint for tool connectivity checks
         this.sendJSON(res, 200, {
           status: 'ok',
-          version: '7.2.0',
+          version: '7.1.3',
           uptime: process.uptime(),
           tools: Object.keys(this.toolHandlers).length,
         });
@@ -636,16 +660,29 @@ export class MCPServer {
   }
 
   async handleRequest(request: MCPRequest): Promise<MCPResponse> {
-    if (request.jsonrpc !== '2.0') {
-      return this.makeError(request.id, -32600, 'Invalid Request: jsonrpc must be "2.0"');
+    if (!request || typeof request !== 'object' || Array.isArray(request) || request.jsonrpc !== '2.0' ||
+      typeof request.method !== 'string' || (request.id !== undefined && typeof request.id !== 'string' && typeof request.id !== 'number') ||
+      (request.params !== undefined && (!request.params || typeof request.params !== 'object' || Array.isArray(request.params)))) {
+      return this.makeError(undefined, -32600, 'Invalid JSON-RPC request.');
     }
 
     const { method, params } = request;
 
     try {
       switch (method) {
-        case 'initialize':
-          return this.makeResult(request.id, this.handleInitialize());
+        case 'initialize': {
+          if (this.options.toolProfile === 'memory') {
+            const name = String((params?.clientInfo as { name?: string } | undefined)?.name ?? '').toLowerCase();
+            this.telemetryAgent = name.includes('codex') ? 'codex' : name.includes('claude') ? 'claude-code' :
+              name.includes('opencode') ? 'opencode' : name.includes('deepseek') ? 'deepseek-harness' : 'mcp-client';
+            this.telemetryInitialized = true;
+            await this.recordMeasured({ kind: 'session-start' });
+          }
+          return this.makeResult(request.id, this.handleInitialize(params));
+        }
+
+        case 'ping':
+          return this.makeResult(request.id, {});
 
         case 'notifications/initialized':
           // Cursor sends this after initialize — acknowledge silently
@@ -661,20 +698,42 @@ export class MCPServer {
           return this.makeResult(request.id, { prompts: [] });
 
         case 'tools/call': {
-          const toolName = params?.name as string;
+          const toolName = params?.name;
           const toolArgs = (params?.arguments as Record<string, unknown>) ?? {};
 
-          if (!toolName) {
+          if (typeof toolName !== 'string' || !toolName || !toolArgs || typeof toolArgs !== 'object' || Array.isArray(toolArgs)) {
             return this.makeError(request.id, -32602, 'Missing tool name in params.name');
           }
 
           const handler = this.toolHandlers[toolName];
-          if (!handler) {
+          if (!Object.hasOwn(this.toolHandlers, toolName) || !handler || (this.options.toolProfile === 'memory' && !MEMORY_TOOLS.has(toolName))) {
             return this.makeError(request.id, -32601, `Unknown tool: ${toolName}`);
           }
 
-          const result = await handler(toolArgs);
-          return this.makeResult(request.id, { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] });
+          try {
+            if (this.options.toolProfile === 'memory') this.validateMemoryArguments(toolName, toolArgs);
+            const measured = this.options.toolProfile === 'memory' && toolName !== 'activity_report';
+            const correlationId = randomUUID();
+            const projectId = typeof toolArgs.projectId === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(toolArgs.projectId)
+              ? toolArgs.projectId : undefined;
+            if (measured) await this.recordMeasured({ kind: 'tool-start', tool: toolName, correlationId, ...(projectId ? { projectId } : {}) });
+            const started = performance.now();
+            let result: unknown;
+            try {
+              result = await handler(toolArgs);
+              if (measured) await this.recordMeasured({ kind: 'tool-end', tool: toolName, correlationId, outcome: 'success',
+                durationMs: Math.max(0, Math.round((performance.now() - started) * 1000) / 1000), ...(projectId ? { projectId } : {}) });
+            } catch (error) {
+              if (measured) await this.recordMeasured({ kind: 'tool-end', tool: toolName, correlationId, outcome: 'error',
+                durationMs: Math.max(0, Math.round((performance.now() - started) * 1000) / 1000), ...(projectId ? { projectId } : {}) });
+              throw error;
+            }
+            return this.makeResult(request.id, { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Tool execution failed.';
+            if (error instanceof TypeError || error instanceof RangeError) return this.makeError(request.id, -32602, message);
+            return this.makeResult(request.id, { content: [{ type: 'text', text: message }], isError: true });
+          }
         }
 
         default:
@@ -687,18 +746,75 @@ export class MCPServer {
 
   // ── Tool Handlers ──────────────────────────────────────────────────────
 
-  private handleInitialize(): object {
+  private async telemetryProject(): Promise<string> {
+    if (this.dependencies.projectId) return this.dependencies.projectId;
+    const { GlobalBrain } = await import('./global-brain.js');
+    return GlobalBrain.projectIdFor(path.resolve(this.dependencies.projectDir ?? process.cwd()));
+  }
+
+  private async recordMeasured(event: Pick<ActivityEventInput, 'kind'> & Partial<ActivityEventInput>): Promise<void> {
+    if (this.options.toolProfile !== 'memory') return;
+    try {
+      const { getFeatureSettings } = await import('./feature-settings.js');
+      if (!(this.dependencies.settings ?? getFeatureSettings()).get().features.activityRecording) return;
+      const { getGlobalBrain } = await import('./global-brain.js');
+      const { ActivityJournal, ACTIVITY_JOURNAL_FILENAME } = await import('./activity-journal.js');
+      const brain = this.dependencies.brain ?? getGlobalBrain();
+      const journal = new ActivityJournal({ filePath: path.join(path.dirname(brain.dbPath), ACTIVITY_JOURNAL_FILENAME), lockTimeoutMs: 250 });
+      await journal.append({ projectId: await this.telemetryProject(), sessionId: this.telemetrySession,
+        agent: this.telemetryAgent, ...event, source: 'measured', transport: 'mcp' });
+    } catch {
+      if (!this.telemetryWarning) {
+        this.telemetryWarning = true;
+        console.error('Shadow Brain activity recording is unavailable. Tool execution continues.');
+      }
+    }
+  }
+
+  async finishMemorySession(): Promise<void> {
+    if (this.telemetryInitialized) {
+      this.telemetryInitialized = false;
+      await this.recordMeasured({ kind: 'session-end' });
+    }
+  }
+
+  private async handleActivityReport(params: Record<string, unknown>): Promise<unknown> {
+    const { reportAgentActivity } = await import('./activity-reporting.js');
+    const { getFeatureSettings } = await import('./feature-settings.js');
+    const { getGlobalBrain } = await import('./global-brain.js');
+    return reportAgentActivity(this.dependencies.brain ?? getGlobalBrain(), this.dependencies.settings ?? getFeatureSettings(), {
+      projectId: await this.telemetryProject(), sessionId: this.telemetrySession, agent: this.telemetryAgent, ...params,
+    });
+  }
+
+  private validateMemoryArguments(name: string, args: Record<string, unknown>): void {
+    if (!['global_recall', 'global_recall_scored', 'global_timeline'].includes(name)) return;
+    if (args.limit !== undefined && (!Number.isSafeInteger(args.limit) || Number(args.limit) < 1 || Number(args.limit) > 200)) {
+      throw new TypeError('limit must be an integer from 1 to 200.');
+    }
+    for (const key of ['projectId', 'projectDir', 'agentTool', 'category']) {
+      if (args[key] !== undefined && (typeof args[key] !== 'string' || (args[key] as string).length > 1000)) throw new TypeError(key + ' must be bounded text.');
+    }
+    for (const key of ['minImportance', 'minConfidence']) {
+      if (args[key] !== undefined && (typeof args[key] !== 'number' || !Number.isFinite(args[key]) || Number(args[key]) < 0 || Number(args[key]) > 1)) throw new TypeError(key + ' must be from 0 to 1.');
+    }
+    if (args.keywords !== undefined && (!Array.isArray(args.keywords) || args.keywords.length > 32 || args.keywords.some(word => typeof word !== 'string' || word.length > 256))) {
+      throw new TypeError('keywords must contain at most 32 text terms of at most 256 characters.');
+    }
+  }
+
+  private handleInitialize(params?: Record<string, unknown>): object {
+    const versions = ['2025-06-18', '2024-11-05'];
     return {
-      protocolVersion: '2024-11-05',
+      protocolVersion: versions.includes(String(params?.protocolVersion)) ? params!.protocolVersion : versions[0],
       capabilities: {
         tools: { listChanged: false },
         resources: { subscribe: false, listChanged: false },
         prompts: { listChanged: false },
-        logging: {},
       },
       serverInfo: {
         name: 'agent-shadow-brain',
-        version: '7.2.0',
+        version: '7.1.3',
         description: 'Cross-agent memory and safety layer for AI coding agents',
       },
     };
@@ -1025,7 +1141,7 @@ export class MCPServer {
   private async handleStatus(params: Record<string, unknown>): Promise<unknown> {
     const status = this.orchestrator.getStatus?.() || {};
     return {
-      version: '7.2.0',
+      version: '7.1.3',
       ...status,
     };
   }
@@ -1054,7 +1170,7 @@ export class MCPServer {
       const instance = (this.orchestrator as Record<string, unknown>)[mod.key];
       modules.push({
         name: mod.name,
-        version: '7.2.0',
+        version: '7.1.3',
         status: instance ? 'active' : 'idle',
       });
     }
@@ -1084,7 +1200,14 @@ export class MCPServer {
   // ── Tool Definitions ───────────────────────────────────────────────────
 
   private getToolDefinitions(): MCPTool[] {
-    return [
+    const definitions: MCPTool[] = [
+      { name: 'activity_report', description: 'Explicitly report an agent phase or tool span to the live portal. Writes only bounded activity labels/timing; reports remain labelled host-reported. Do not send request text, arguments, file paths, or secrets.',
+        inputSchema: { type: 'object', additionalProperties: false, required: ['kind'], properties: {
+          kind: { type: 'string', enum: ['session-start', 'phase', 'tool-start', 'tool-end', 'session-end'] },
+          projectId: { type: 'string' }, sessionId: { type: 'string' }, agent: { type: 'string' },
+          phase: { type: 'string', enum: ['understand', 'plan', 'work', 'verify'] }, tool: { type: 'string' }, correlationId: { type: 'string' },
+          outcome: { type: 'string', enum: ['success', 'error', 'cancelled'] }, durationMs: { type: 'number', minimum: 0 },
+        } }, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false } },
       {
         name: 'analyze',
         description: 'Run full analysis on project files and return insights',
@@ -1324,7 +1447,7 @@ export class MCPServer {
       },
       {
         name: 'context_pack',
-        description: 'Build a bounded reference context pack for a specified project and task, with provenance, selection reasons, and exclusions. Cross-project content requires both the persisted feature and an explicit request. No provider calls or source-file reads. Token counts are estimates. (v7.2.0)',
+        description: 'Build a bounded reference context pack for a specified project and task, with provenance, selection reasons, and exclusions. Cross-project content requires both the persisted feature and an explicit request. No provider calls or source-file reads. Token counts are estimates. (v7.1.3)',
         inputSchema: { type: 'object', required: ['projectId'], additionalProperties: false, properties: {
           projectId: { type: 'string' }, query: { type: 'string' },
           tokenBudget: { type: 'integer', minimum: 0, maximum: 12000 }, includeCrossProject: { type: 'boolean' },
@@ -1332,7 +1455,7 @@ export class MCPServer {
       },
       {
         name: 'feature_flags',
-        description: 'Read the four persisted context, briefing, and dashboard activity controls. Does not modify settings or expose provider configuration. (v7.2.0)',
+        description: 'Read the five persisted context, briefing, and activity controls. Does not modify settings or expose provider configuration. (v7.1.3)',
         inputSchema: { type: 'object', properties: {}, additionalProperties: false },
       },
       {
@@ -1425,6 +1548,9 @@ export class MCPServer {
         },
       },
     ];
+    return this.options.toolProfile === 'memory'
+      ? definitions.filter(tool => MEMORY_TOOLS.has(tool.name)).map(tool => ({ ...tool, annotations: { readOnlyHint: tool.name !== 'activity_report', destructiveHint: false, openWorldHint: false } }))
+      : definitions;
   }
 
   // ── HTTP Handling ──────────────────────────────────────────────────────

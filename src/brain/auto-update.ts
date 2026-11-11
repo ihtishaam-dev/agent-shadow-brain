@@ -2,7 +2,7 @@
 
 import * as https from 'https';
 
-const CURRENT_VERSION = '7.2.0';
+const CURRENT_VERSION = '7.1.3';
 const PACKAGE_NAME = '@theihtisham/agent-shadow-brain';
 
 export interface UpdateCheck {

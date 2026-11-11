@@ -1,5 +1,18 @@
 # Changelog
 
+## [7.1.3] - 2026-11-11 - Live activity and curated memory
+
+This release follows 7.2.0 using the version number requested by the maintainer. Install `@7.1.3` explicitly when upgrading from 7.2.0.
+
+- Added a live portal with an event-driven session network, measured tool charts, host-reported phases, timeline, pause, and reduced motion.
+- Added a bounded cross-process activity journal, cursor and reset detection, metadata-only MCP instrumentation, host reporting, and separate recording and visibility controls.
+- Added memory review, typed relations, audit history, and project-scoped curation through the workspace and CLI.
+- Excluded archived, contested, and superseded memories before context ranking; briefings refresh when reviews change.
+- Added standard MCP stdio, client capability checks, project skill diagnostics, and generated launch configuration.
+- Improved workspace navigation, source coverage, graph filtering, context explanations, dark mode, and mobile layouts.
+- Fixed empty-project graph scope, preservation of pending writes during read refresh, and per-client attach/detach targeting.
+
+
 ## [7.2.0] - 2026-11-11 - Context Packs and Workspace
 
 - Make the local workspace the default dashboard with overview, searchable memories, graph, context, and feature controls. Keep the previous dashboard at `/advanced`.

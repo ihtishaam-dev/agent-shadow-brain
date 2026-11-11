@@ -2520,7 +2520,7 @@ function renderMemoryItems(items, emptyMessage) {
   if (!items || !items.length) return '<div class="empty-tight">' + htmlEscape(emptyMessage) + '</div>';
   return items.map(item => {
     const importancePct = item.importance !== undefined ? Math.round((item.importance || 0) * 100) + '%' : '';
-    // v7.2.0: real blended recall confidence (recency + importance + corroboration + usage + relevance).
+    // v7.1.3: real blended recall confidence (recency + importance + corroboration + usage + relevance).
     const conf = item.confidence && typeof item.confidence.score === 'number' ? item.confidence : null;
     const confCls = conf ? (conf.level === 'high' ? 'green' : conf.level === 'medium' ? 'yellow' : 'red') : '';
     const confBadge = conf ? '<span class="pill ' + confCls + '" title="Heuristic recall score (not probability of truth) ' + Math.round(conf.score * 100) + '% (' + htmlEscape(conf.level) + ') | relevance ' + conf.signals.relevance + ', creation-age recency ' + conf.signals.recency + ', importance ' + conf.signals.importance + ', matching-content agent reports ' + conf.signals.corroboration + ', usage ' + conf.signals.usage + '">\u2737 ' + Math.round(conf.score * 100) + '%</span>' : '';
@@ -3321,8 +3321,8 @@ async function refreshAgents() {
       <td style="text-align:right">\${a.hookInstalled ? \`<button class="btn sm danger" onclick="detachOne('\${a.name}')">Disconnect</button>\` : \`<button class="btn sm success" onclick="attachOne('\${a.name}')">Connect</button>\`}</td>
     </tr>\`).join('') || '<tr><td colspan="5"><div class="empty">No agents detected</div></td></tr>';
 }
-async function attachOne(agent) { await api('/api/v6/agents-attach', { agent }); toast('Attached', agent); refreshAgents(); }
-async function detachOne(agent) { await api('/api/v6/agents-detach', { agent }); toast('Detached', agent, 'warn'); refreshAgents(); }
+async function attachOne(agent) { const r = await api('/api/v6/agents-attach', { agent }); if (r?.ok) toast('Attached', agent); else toast('No change', r?.error || r?.report?.failed?.[0]?.reason || 'Attachment failed.', 'warn'); refreshAgents(); }
+async function detachOne(agent) { const r = await api('/api/v6/agents-detach', { agent }); if (r?.ok) toast('Detached', agent, 'warn'); else toast('No change', r?.error || r?.report?.failed?.[0]?.reason || 'No hook was removed.', 'warn'); refreshAgents(); }
 async function attachAll() { const r = await api('/api/v6/agents-attach-all', {}); if (r) { toast('Attach All', (r.attached?.length ?? 0) + ' agents wired'); refreshAgents(); } }
 async function detachAll() { if (!confirm('Detach Shadow Brain hooks from ALL agents?')) return; const r = await api('/api/v6/agents-detach-all', {}); if (r) { toast('Detach All', (r.attached?.length ?? 0) + ' agents', 'warn'); refreshAgents(); } }
 

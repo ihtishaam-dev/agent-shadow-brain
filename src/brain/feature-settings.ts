@@ -29,6 +29,12 @@ export const FEATURE_DEFINITIONS = [
     description: 'Show activity updates and the recent activity feed in the dashboard.',
     defaultEnabled: true,
   },
+  {
+    id: 'activityRecording',
+    label: 'Record agent activity',
+    description: 'Record bounded tool timing and explicitly reported session phases. Arguments, memory text, and credentials are not captured.',
+    defaultEnabled: true,
+  },
 ] as const;
 
 export type FeatureId = typeof FEATURE_DEFINITIONS[number]['id'];
@@ -39,6 +45,7 @@ export const DEFAULT_FEATURE_FLAGS: Readonly<FeatureFlags> = Object.freeze({
   crossProjectContext: false,
   automaticBriefing: true,
   liveActivity: true,
+  activityRecording: true,
 });
 
 export const FEATURE_SETTINGS_FILENAME = 'feature-settings.json';
@@ -56,6 +63,7 @@ export interface FeatureSettingsOptions {
 }
 
 const FEATURE_IDS = new Set<string>(FEATURE_DEFINITIONS.map(({ id }) => id));
+const ORIGINAL_FEATURE_IDS = ['contextAssembly', 'crossProjectContext', 'automaticBriefing', 'liveActivity'];
 const LOCK_TIMEOUT_MS = 3000;
 const LOCK_POLL_MS = 20;
 
@@ -95,7 +103,8 @@ function parseSnapshot(raw: string): FeatureSettingsSnapshot {
     if (isRecord(data) && data.schemaVersion === 1 && typeof data.revision === 'number' &&
         Number.isSafeInteger(data.revision) && data.revision >= 1 &&
         typeof data.updatedAt === 'string' && Number.isFinite(Date.parse(data.updatedAt)) &&
-        isFeatureMap(data.features) && Object.keys(data.features).length === FEATURE_IDS.size) {
+        isFeatureMap(data.features) && ORIGINAL_FEATURE_IDS.every(id => Object.hasOwn(data.features as object, id)) &&
+        [FEATURE_IDS.size - 1, FEATURE_IDS.size].includes(Object.keys(data.features).length)) {
       return {
         schemaVersion: 1, revision: data.revision, updatedAt: data.updatedAt,
         features: { ...DEFAULT_FEATURE_FLAGS, ...data.features },

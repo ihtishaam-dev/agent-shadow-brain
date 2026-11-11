@@ -125,4 +125,21 @@ describe('memory graph (constellation)', () => {
     expect(snap.stats.memories).toBe(0);
     expect(snap.stats.edges).toBe(0);
   });
+
+  it('does not substitute another project for an explicitly scoped empty graph', async () => {
+    seed({ project: 'Beta', content: 'Other project data' });
+    const scoped = await getMemoryGraph().build({ projectId: 'proj-Alpha' });
+    expect(scoped).toMatchObject({ projectScoped: true, nodes: [], edges: [] });
+    const global = await getMemoryGraph().build();
+    expect(global.nodes.find(node => node.type === 'memory')?.meta?.content).toBe('Other project data');
+  });
+
+  it('reports corrupt storage instead of rendering an empty graph', async () => {
+    await brain.shutdown();
+    const dbPath = path.join(tmpDir, 'global.json');
+    fs.writeFileSync(dbPath, 'synthetic invalid store');
+    brain = getGlobalBrain({ dbPath, syncIntervalMs: 60_000 });
+    await expect(getMemoryGraph().build({ projectId: 'proj-Alpha' })).rejects.toMatchObject({ code: 'STORE_INVALID_JSON' });
+    expect(fs.readFileSync(dbPath, 'utf8')).toBe('synthetic invalid store');
+  });
 });

@@ -55,6 +55,32 @@ afterEach(async () => {
 });
 
 describe('GlobalBrain storage', () => {
+  it('refreshes external commits while preserving queued operations without flushing or acknowledging them', async () => {
+    const first = makeBrain();
+    const second = makeBrain();
+    await first.init();
+    const original = first.writeSync(example);
+    await first.sync();
+    await second.init();
+    first.touch(original);
+    const staged = first.writeSync({ ...example, content: 'staged locally' });
+    let acknowledged = false;
+    const queued = first.write({ ...example, content: 'waiting for commit' }).then(ok => { acknowledged = ok; return ok; });
+    const external = second.writeSync({ ...example, content: 'committed elsewhere' });
+    await second.sync();
+    const before = fs.readFileSync(dbPath);
+    first.refresh();
+    expect(fs.readFileSync(dbPath)).toEqual(before);
+    expect(acknowledged).toBe(false);
+    expect(first.getEntry(staged)?.content).toBe('staged locally');
+    expect(first.getEntry(external)?.content).toBe('committed elsewhere');
+    expect(first.getEntry(original)?.accessCount).toBe(1);
+    expect(first.getStorageHealth().pendingOperations).toBe(3);
+    await first.sync();
+    expect(await queued).toBe(true);
+    expect(readDisk().entries).toHaveLength(4);
+  });
+
   it.each([false, true])('merges two stale writers in either order (%s)', async (reverse) => {
     const first = makeBrain();
     const second = makeBrain();

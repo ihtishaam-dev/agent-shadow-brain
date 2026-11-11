@@ -5,6 +5,7 @@ export type AgentTool =
   | 'kilo-code'
   | 'cline'
   | 'opencode'
+  | 'deepseek-harness'
   | 'codex'
   | 'roo-code'
   | 'aider'
@@ -373,6 +374,7 @@ export interface MCPTool {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean; openWorldHint?: boolean };
 }
 
 export interface MCPServerOptions {
@@ -380,6 +382,7 @@ export interface MCPServerOptions {
   host?: string;
   authToken?: string;
   corsOrigin?: string;
+  toolProfile?: 'full' | 'memory';
 }
 
 export interface PerfInsight {

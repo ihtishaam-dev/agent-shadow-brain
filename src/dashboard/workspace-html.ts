@@ -5,7 +5,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Shadow Brain · Workspace</title>
+<title>Agent Shadow Brain · Workspace</title>
 <script>
   try {
     const theme = localStorage.getItem('shadow-brain:workspace:theme');
@@ -20,7 +20,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
     --canvas: #f4f6f9; --surface: #fff; --inset: #eef2f6; --hover: #f2f5f8;
     --ink: #182539; --muted: #4e6176; --line: #dbe2e9; --control: #8a9bae;
     --teal: #096459; --teal-fill: #076b5e; --teal-hover: #05584d; --tint: #dff1ec;
-    --bad: #a32940; --bad-bg: #fbeaf0; --focus: #167b9d;
+    --bad: #a32940; --bad-bg: #fbeaf0; --focus: #167b9d; --amber: #815116; --amber-bg: #f9edd8;
     --rail: #172539; --rail-ink: #f0f5fc; --rail-muted: #b5c5d7; --rail-line: #35475b;
     --rail-selected: #284657; --rail-highlight: #8ed9cb;
     --agent: #57539a; --agent-bg: #eeecfa; --project: var(--teal); --project-bg: var(--tint);
@@ -36,7 +36,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
     --canvas: #111b2a; --surface: #172437; --inset: #1e2e43; --hover: #23344a;
     --ink: #edf4fb; --muted: #b3c1d1; --line: #334459; --control: #74889e;
     --teal: #94e1d3; --teal-fill: #9be6d6; --teal-hover: #baf2e6; --tint: #203f43;
-    --bad: #ffadbd; --bad-bg: #492a3a; --focus: #8cd6f3;
+    --bad: #ffadbd; --bad-bg: #492a3a; --focus: #8cd6f3; --amber: #f4cb89; --amber-bg: #43352a;
     --rail: #101a28; --rail-line: #2e4157; --rail-selected: #233e4f;
     --agent: #c7bffc; --agent-bg: #333451; --memory: #bccfea; --memory-bg: #2a3a50;
     --graph-line: #8295ac; --graph-project: #82bcb1; --graph-agent: #aaa0db; --graph-dot: #34465b; --accent-ink: #15372e;
@@ -70,7 +70,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
   .brand { color: var(--rail-ink); display: flex; align-items: center; gap: 11px; padding: 0 7px; font-weight: 710; }
   .brand-mark { width: 33px; height: 33px; display: grid; place-items: center; background: #294354; color: #9ce6d6; border-radius: 8px; }
   .brand-mark .icon { width: 21px; height: 21px; }
-  .brand-name { letter-spacing: -.02em; white-space: nowrap; }
+  .brand-name { letter-spacing: -.02em; line-height: 1.13; }
   .rail-nav { display: grid; gap: 4px; }
   .nav-link { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 7px; color: var(--rail-muted); font-weight: 580; }
   .nav-link:hover { color: var(--rail-ink); background: #24384d; }
@@ -88,6 +88,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
   .crumb { display: flex; align-items: center; gap: 9px; min-width: 0; }
   .crumb .icon { width: 14px; height: 14px; color: var(--muted); }
   .top-actions { display: flex; align-items: center; gap: 14px; }
+  .live-link { white-space: nowrap; }
   .connection { display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
   .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: currentColor; }
   .connection[data-state="connected"] .dot { color: var(--teal); }
@@ -130,7 +131,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
   .inline-check { display: flex; align-items: flex-start; gap: 7px; min-height: 28px; }
   .inline-check input { accent-color: var(--teal-fill); margin-top: 4px; }
   .form-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .filters { display: grid; grid-template-columns: minmax(180px, 1.7fr) repeat(3,minmax(100px,1fr)) auto; gap: 10px; align-items: end; }
+  .filters { display: grid; grid-template-columns: minmax(155px,1.45fr) repeat(4,minmax(96px,1fr)) auto; gap: 10px; align-items: end; }
   .filter-bar { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
   .filter-bar .label { flex: 1 1 155px; }
   .status { padding: 13px 17px; border: 1px solid var(--line); border-radius: 7px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; background: var(--surface); }
@@ -151,6 +152,10 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
   .tag.project { background: var(--project-bg); color: var(--project); }
   .tag.agent { background: var(--agent-bg); color: var(--agent); }
   .tag.memory { background: var(--memory-bg); color: var(--memory); }
+  .tag.state-active, .tag.check-ok { background: var(--tint); color: var(--teal); }
+  .tag.state-contested, .tag.check-warn { background: var(--amber-bg); color: var(--amber); }
+  .tag.state-superseded { background: var(--agent-bg); color: var(--agent); }
+  .tag.check-error { background: var(--bad-bg); color: var(--bad); }
   .tags { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 7px; }
   .summary {
     display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); background: var(--surface);
@@ -182,6 +187,31 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
   .memory-row { padding: 14px 19px; display: grid; gap: 8px; }
   .memory-head { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
   .memory-head time { white-space: nowrap; }
+  .record-link { color: var(--ink); font-weight: 680; text-decoration: underline; text-decoration-color: var(--control); text-underline-offset: 3px; }
+  .record-link:hover { color: var(--teal); text-decoration-color: currentColor; }
+  .memory-content { white-space: pre-wrap; overflow-wrap: anywhere; max-width: none; }
+  .detail-head { display: grid; gap: 9px; }
+  .detail-head > .button { justify-self: start; }
+  .detail-layout { grid-template-columns: minmax(0,1.45fr) minmax(265px,1fr); }
+  .detail-form, .detail-sources, .check-result { display: grid; gap: 9px; }
+  .detail-note { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .detail-row { display: grid; gap: 7px; padding: 13px 19px; }
+  .link-search { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 8px; }
+  .save-status:empty { display: none; }
+  .inline-error { color: var(--bad); }
+  .quality-track { display: flex; width: 100%; height: 12px; background: var(--inset); border-radius: 5px; overflow: hidden; }
+  .quality-track > span { flex: none; }
+  .quality-active { background: var(--teal-fill); }
+  .quality-contested { background: var(--amber); }
+  .quality-archived { background: var(--control); }
+  .quality-superseded { background: var(--agent); }
+  .quality-labels { display: flex; flex-wrap: wrap; gap: 8px 13px; }
+  .quality-labels a { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); font-size: .82rem; }
+  .quality-labels a:hover { text-decoration: underline; }
+  .quality-labels i { width: 8px; height: 8px; border-radius: 2px; }
+  .quality-source { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+  .check-row { display: grid; grid-template-columns: minmax(130px,.9fr) minmax(0,1.7fr) auto; gap: 10px; align-items: start; padding: 13px 19px; }
+  .check-row .tag { justify-self: end; }
   .memory-row p { max-width: 90ch; white-space: pre-wrap; }
   .memory-row details summary { color: var(--teal); font-size: .85rem; font-weight: 650; cursor: pointer; width: fit-content; max-width: 100%; }
   .memory-row details ul { padding-left: 19px; margin-top: 4px; }
@@ -207,12 +237,20 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
   .graph-node.dot-node:is(:hover,:focus-visible,[aria-pressed="true"]) .node-surface { fill: var(--memory-bg); }
   .graph-node:focus-visible { outline: none; }
   .graph-node.unrelated { opacity: .34; }
-  .graph-edge { fill: none; stroke: var(--graph-line); stroke-width: 1.15; opacity: .53; }
+  .graph-edge { fill: none; stroke: var(--graph-line); stroke-width: 1.15; opacity: .53; transition: opacity var(--ease); }
   .graph-edge.project-edge { stroke: var(--graph-project); }
   .graph-edge.agent-edge { stroke: var(--graph-agent); stroke-dasharray: 4 3; opacity: .35; }
   .graph-edge.active { stroke: var(--teal); stroke-width: 2.1; opacity: 1; }
   .graph-edge.agent-edge.active { stroke: var(--agent); }
+  .graph-edge.recorded-edge { stroke: var(--agent); stroke-width: 1.8; opacity: .8; }
+  .graph-edge.contradicts { stroke: var(--bad); stroke-dasharray: 5 3; }
+  .graph-edge.supersedes { stroke: var(--teal); stroke-dasharray: 2 2; }
+  .graph-edge.recorded-edge.active { stroke-width: 3; opacity: 1; }
   .graph-edge.unrelated { opacity: .13; }
+  .graph-edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+  .graph-link-group:is(:hover,:focus-visible) .graph-edge.recorded-edge { opacity: 1; stroke-width: 3; }
+  .graph-link-group:focus-visible { outline: none; }
+  .graph-arrow { fill: var(--agent); }
   .graph-tooltip { pointer-events: none; }
   .graph-tooltip rect { fill: var(--surface); stroke: var(--memory); }
   .graph-tooltip text { fill: var(--ink); font-size: 12px; font-weight: 650; }
@@ -234,6 +272,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
   .legend-line { display: inline-block; width: 16px; border-top: 2px solid var(--graph-line); }
   .legend-line.project-edge { border-color: var(--graph-project); }
   .legend-line.agent-edge { border-color: var(--graph-agent); border-top-style: dashed; }
+  .legend-line.recorded-edge { border-color: var(--agent); }
   .graph-list { min-width: 0; max-height: 480px; overflow-y: auto; }
   .graph-list .graph-row { padding: 9px 12px; }
   .graph-list .button { justify-content: flex-start; text-align: left; width: 100%; }
@@ -270,9 +309,9 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
   @media (max-width: 1140px) {
     :root { --sidebar: 188px; }
     .top, .content { padding-left: 24px; padding-right: 24px; }
-    .filters { grid-template-columns: repeat(3,minmax(0,1fr)); }
-    .filters .search-field { grid-column: span 2; }
-    .filters .button { grid-column: 3; grid-row: 1; }
+    .filters { grid-template-columns: repeat(4,minmax(0,1fr)); }
+    .filters .search-field { grid-column: span 3; }
+    .filters .button { grid-column: 4; grid-row: 1; }
     .overview-columns { grid-template-columns: minmax(0,1.25fr) minmax(0,1fr); }
     .event { grid-template-columns: 27px minmax(0,1fr); }
     .event time { grid-column: 2; }
@@ -302,6 +341,12 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
     .summary-item { gap: 6px; padding: 11px 9px; }
     .summary-item .tile-icon { display: none; }
     .split { grid-template-columns: minmax(0,1fr); gap: 13px; }
+    .filters { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .filters .search-field { grid-column: 1; }
+    .filters .button { grid-column: 2; grid-row: 1; }
+    .check-row { grid-template-columns: minmax(0,1fr) auto; padding-left: 12px; padding-right: 12px; }
+    .check-row .check-result { grid-column: 1 / -1; grid-row: 2; }
+    .check-row .tag { grid-column: 2; grid-row: 1; }
     .graph-body { grid-template-columns: minmax(0,1fr); }
     .graph-stage, .graph-list { height: 365px; }
     .graph-inspector { border-left: 0; border-top: 1px solid var(--line); max-height: 340px; }
@@ -324,14 +369,15 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
 <a class="skip button" href="#main-content">Skip to content</a>
 <div class="shell">
   <aside class="rail">
-    <a class="brand" href="#overview" aria-label="Shadow Brain overview">
-      <span class="brand-mark" data-icon="brand"></span><span class="brand-name">Shadow Brain</span>
+    <a class="brand" href="#overview" aria-label="Agent Shadow Brain overview">
+      <span class="brand-mark" data-icon="brand"></span><span class="brand-name">Agent Shadow Brain</span>
     </a>
     <nav class="rail-nav" aria-label="Workspace">
       <a class="nav-link" href="#overview" aria-label="Overview" title="Overview" data-view="overview" aria-current="page"><span data-icon="overview"></span><span class="nav-label">Overview</span></a>
       <a class="nav-link" href="#memories" aria-label="Memories" title="Memories" data-view="memories"><span data-icon="memory"></span><span class="nav-label">Memories</span></a>
       <a class="nav-link" href="#graph" aria-label="Graph" title="Graph" data-view="graph"><span data-icon="graph"></span><span class="nav-label">Graph</span></a>
       <a class="nav-link" href="#context" aria-label="Context" title="Context" data-view="context"><span data-icon="context"></span><span class="nav-label">Context</span></a>
+      <a class="nav-link" href="#integrations" aria-label="Integrations and health" title="Integrations and health" data-view="integrations"><span data-icon="integrations"></span><span class="nav-label">Integrations</span></a>
       <a class="nav-link" href="#features" aria-label="Features" title="Features" data-view="features"><span data-icon="settings"></span><span class="nav-label">Features</span></a>
     </nav>
     <div class="rail-foot">
@@ -343,6 +389,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
     <header class="top">
       <div class="crumb"><span class="muted">Workspace</span><span data-icon="chevron"></span><strong id="crumb">Overview</strong></div>
       <div class="top-actions">
+        <a class="button quiet live-link" href="/live"><span data-icon="activity"></span>Live</a>
         <span class="connection muted small" id="connection" data-state="loading"><span class="dot"></span><span id="connection-label">Connecting</span></span>
         <button type="button" class="button icon-button quiet" id="theme-toggle" aria-label="Switch to dark theme" title="Switch to dark theme"><span data-icon="moon"></span></button>
       </div>
@@ -364,18 +411,30 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
             <label class="label" for="memory-project">Project<select id="memory-project"><option value="">All projects</option></select></label>
             <label class="label" for="memory-category">Category<select id="memory-category"><option value="">All categories</option></select></label>
             <label class="label" for="memory-agent">Agent<select id="memory-agent"><option value="">All agents</option></select></label>
+            <label class="label" for="memory-state">Status<select id="memory-state"><option value="">All statuses</option><option value="active">Active</option><option value="contested">Needs review</option><option value="archived">Archived</option><option value="superseded">Superseded</option></select></label>
             <button class="button primary" id="memory-search" type="submit"><span data-icon="search"></span>Search</button>
           </form>
           <div id="memory-results" class="panel" aria-busy="true"></div>
         </div>
       </section>
+      <section id="page-memory" aria-labelledby="title-memory" hidden>
+        <div class="page-head">
+          <div class="detail-head"><a id="detail-back" href="#memories" class="button quiet"><span data-icon="left"></span>Memories</a><h1 id="title-memory" tabindex="-1">Memory detail</h1><div id="detail-meta"></div></div>
+          <div class="form-actions" id="detail-actions" hidden>
+            <a id="detail-graph" class="button" href="#graph"><span data-icon="graph"></span>View on graph</a>
+            <a id="detail-context" class="button" href="#context"><span data-icon="context"></span>Assemble context</a>
+          </div>
+        </div>
+        <div id="detail-body" aria-busy="true"></div>
+      </section>
       <section id="page-graph" aria-labelledby="title-graph" hidden>
-        <div class="page-head"><div><h1 id="title-graph" tabindex="-1">Graph</h1><p class="muted">Explore how stored memories connect to projects and agents.</p></div></div>
+        <div class="page-head"><div><h1 id="title-graph" tabindex="-1">Graph</h1><p class="muted">Explore project membership, recording agents, and links between memories.</p></div></div>
         <div class="stack">
           <div class="panel panel-body filter-bar">
             <label class="label search-field" for="graph-query">Find a node<span data-icon="search"></span><input id="graph-query" type="search" maxlength="200" placeholder="Filter by name"></label>
             <label class="label" for="graph-project">Project<select id="graph-project"><option value="">All projects</option></select></label>
             <label class="label" for="graph-kind">Node type<select id="graph-kind"><option value="">All types</option><option value="project">Projects</option><option value="agent">Agents</option><option value="memory">Memories</option></select></label>
+            <label class="label" for="graph-relation">Relationship<select id="graph-relation"><option value="">All relationships</option><option value="recorded">Memory links</option><option value="belongs-to">Project membership</option><option value="recorded-by">Recording agent</option><option value="related">Related</option><option value="supports">Supports</option><option value="contradicts">Contradicts</option><option value="supersedes">Supersedes</option></select></label>
             <div class="form-actions toolbar-end graph-mode" role="group" aria-label="Graph view">
               <button type="button" class="button" id="graph-mode-map" aria-pressed="true"><span data-icon="graph"></span>Map</button>
               <button type="button" class="button" id="graph-mode-list" aria-pressed="false"><span data-icon="list"></span>List</button>
@@ -386,7 +445,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
             <div id="graph-status"></div>
             <div class="graph-body" id="graph-body" hidden>
               <div class="graph-stage" id="graph-stage">
-                <svg id="graph-svg" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Memory relationship map. Use arrow keys to navigate nodes."></svg>
+                <svg id="graph-svg" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Memory relationship map. Use arrow keys to navigate nodes or links."></svg>
                 <div class="graph-tools" role="group" aria-label="Map zoom">
                   <button class="button icon-button" type="button" id="graph-out" aria-label="Zoom out" title="Zoom out"><span data-icon="minus"></span></button>
                   <button class="button icon-button" type="button" id="graph-in" aria-label="Zoom in" title="Zoom in"><span data-icon="plus"></span></button>
@@ -400,6 +459,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
             <div id="graph-legend" class="legend" hidden>
               <span><i class="legend-glyph project"></i> Project</span><span><i class="legend-glyph agent"></i> Agent</span><span><i class="legend-glyph memory"></i> Memory</span>
               <span><i class="legend-line project-edge"></i> Belongs to project</span><span><i class="legend-line agent-edge"></i> Recorded by agent</span>
+              <span><i class="legend-line recorded-edge"></i> Recorded memory link</span>
             </div>
           </div>
         </div>
@@ -420,6 +480,13 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
           </div>
           <div class="panel" id="context-result"><div class="panel-head"><h2>Context preview</h2></div><div id="context-output"></div></div>
         </div>
+      </section>
+      <section id="page-integrations" aria-labelledby="title-integrations" hidden>
+        <div class="page-head">
+          <div><h1 id="title-integrations" tabindex="-1">Integrations &amp; health</h1><p class="muted">Check local storage and see which capabilities each agent supports.</p></div>
+          <button class="button" type="button" id="integrations-refresh"><span data-icon="refresh"></span>Run checks</button>
+        </div>
+        <div id="integrations-body" aria-busy="true"></div>
       </section>
       <section id="page-features" aria-labelledby="title-features" hidden>
         <div class="page-head"><div><h1 id="title-features" tabindex="-1">Features</h1><p class="muted">Control how Shadow Brain assembles context and updates the workspace.</p></div></div>
@@ -457,6 +524,7 @@ const glyphs = {
   project: '<path d="M3.5 7V6A1.5 1.5 0 0 1 5 4.5h4l2 2h8A1.5 1.5 0 0 1 20.5 8v10A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18Z"/>',
   agent: '<rect x="4.5" y="7" width="15" height="12" rx="3"/><path d="M12 7V4m-8 9H2m20 0h-2m-11-.5h.02m5.98 0H15m-5 3h4"/>',
   activity: '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  integrations: '<path d="M9 3v4m6-4v4m-8 0h10v4a5 5 0 0 1-5 5h0a5 5 0 0 1-5-5zm5 9v5"/>',
   search: '<circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/>',
   source: '<path d="M9.5 14.5 14.5 9m-6 8.5-1 1a3.5 3.5 0 0 1-5-5L7 9a3.5 3.5 0 0 1 5 0m3.5-2.5 1-1a3.5 3.5 0 0 1 5 5L17 15a3.5 3.5 0 0 1-5 0"/>',
   list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
@@ -466,12 +534,15 @@ const glyphs = {
   warning: '<path d="m12 3 10 17H2L12 3zm0 6v4m0 3h.01"/>',
   refresh: '<path d="M19.5 9a8 8 0 1 0 .3 5.5M20 4v5h-5"/>'
 };
-const viewNames = { overview: 'Overview', memories: 'Memories', graph: 'Graph', context: 'Context', features: 'Features' };
+const viewNames = { overview: 'Overview', memories: 'Memories', memory: 'Memory detail', graph: 'Graph', context: 'Context', integrations: 'Integrations', features: 'Features' };
+const reviewStates = { active: 'Active', contested: 'Needs review', archived: 'Archived', superseded: 'Superseded' };
+const linkTypes = { related: 'Related', supports: 'Supports', contradicts: 'Contradicts', supersedes: 'Supersedes' };
 const definitions = [
   { id: 'contextAssembly', label: 'Context assembly', description: 'Build a task-specific brief from saved project memories.' },
   { id: 'crossProjectContext', label: 'Cross-project context', description: 'Allow context assembly to include eligible memories from other projects when requested.' },
   { id: 'automaticBriefing', label: 'Automatic briefing', description: 'Include a context brief when a supported agent starts work in a project.' },
-  { id: 'liveActivity', label: 'Live activity', description: 'Refresh the workspace activity feed automatically.' }
+  { id: 'liveActivity', label: 'Live activity', description: 'Refresh the workspace activity feed automatically.' },
+  { id: 'activityRecording', label: 'Record agent activity', description: 'Record bounded tool timing and explicitly reported session phases.' }
 ];
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -487,11 +558,13 @@ const tags = (items) => '<div class="tags">' + items.filter(([, value]) => value
 const DATE = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const TIME = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const state = {
-  view: '', projects: [], overviewLoaded: false, overviewPending: null,
+  view: '', route: '', projects: [], overviewLoaded: false, overviewPending: null, overviewScope: '', overviewRequest: 0, overviewRequestScope: '',
   activity: [], activityEnabled: null, activityPending: false, features: null, featurePending: null, featureSaving: false,
   memory: { query: null, request: 0, controller: null, limit: 20, offset: 0 },
-  graph: { snapshot: null, project: null, mode: matchMedia('(max-width: 690px)').matches ? 'list' : 'map', selected: '', nodes: [], edges: [], layout: null, zoom: 1, panX: 0, panY: 0, request: 0, controller: null, drag: null },
-  context: { pack: null, pending: false, dirty: false }
+  detail: { snapshot: null, id: '', project: '', back: '#memories', request: 0, targetRequest: 0, saving: false },
+  graph: { snapshot: null, project: null, mode: matchMedia('(max-width: 690px)').matches ? 'list' : 'map', selected: '', selectedEdge: '', focusMemory: '', nodes: [], edges: [], layout: null, zoom: 1, panX: 0, panY: 0, request: 0, controller: null, drag: null },
+  context: { pack: null, pending: false, dirty: false, routeProject: '' },
+  integrations: { snapshot: null, pending: false }
 };
 
 document.querySelectorAll('[data-icon]').forEach((element) => { element.innerHTML = icon(element.dataset.icon); });
@@ -575,6 +648,20 @@ function routeLink(view, params) {
   return '#' + queryPath(view, params);
 }
 
+function memoryLink(id, project, label, className = 'record-link') {
+  if (!id || !project) return esc(label);
+  return '<a class="' + className + '" href="' + esc(routeLink('memory', { id, project })) + '">' + esc(label) + '</a>';
+}
+
+function reviewLabel(value) {
+  return Object.hasOwn(reviewStates, value) ? reviewStates[value] : '';
+}
+
+function reviewTag(value) {
+  const label = reviewLabel(value);
+  return label ? '<span class="tag state-' + value + '">' + label + '</span>' : '';
+}
+
 function renderSummary(totals) {
   return '<dl class="summary">' + [
     ['memory', 'Stored memories', totals.memories], ['project', 'Projects', totals.projects], ['agent', 'Contributing agents', totals.agents]
@@ -601,8 +688,33 @@ function renderOverviewMemories(memories) {
   if (!memories.length) return '';
   return '<div class="panel"><div class="panel-head"><h2>Latest memories</h2><a class="button quiet" href="#memories">Browse ' + icon('chevron', true) +
     '</a></div><ul class="list">' + memories.map((item) => '<li class="overview-memory"><div class="memory-head"><strong>' +
-    esc(item.title || nice(item.category) || 'Memory') + '</strong>' + dateMarkup(item.updatedAt, true) + '</div>' +
-    tags([['project', item.projectName || item.project], ['agent', item.agent], ['memory', nice(item.category)]]) + '</li>').join('') + '</ul></div>';
+    memoryLink(item.id, item.project, item.title || nice(item.category) || 'Memory') + '</strong>' + dateMarkup(item.updatedAt, true) + '</div>' +
+    tags([['project', item.projectName || item.project], ['agent', item.agent], ['memory', nice(item.category)], ['state-' + (item.effectiveState || ''), reviewLabel(item.effectiveState)]]) + '</li>').join('') + '</ul></div>';
+}
+
+function renderQuality(data) {
+  const quality = data.quality;
+  if (!quality || !Number.isFinite(quality.total)) return '';
+  const project = data.scope?.projectId || '';
+  const scope = data.truncated ? 'Based on the latest ' + number(data.inventoryLimit) + ' stored memories.' :
+    project ? 'Stored memories in this project.' : 'Stored memories across projects.';
+  const options = state.projects.map((item) => '<option value="' + esc(item.id) + '"' +
+    (item.id === project ? ' selected' : '') + '>' + esc(item.name || item.id) + '</option>').join('');
+  const statusCounts = Object.entries(reviewStates).map(([key, label]) => ({ key, label, count: Number(quality[key]) || 0 }));
+  const coverage = quality.total ? Math.max(0, Math.min(100, Number(quality.sourceBacked || 0) / quality.total * 100)) : 0;
+  const statusBars = statusCounts.map(({ key, count }) =>
+    '<span class="quality-' + key + '" style="width:' + Math.max(0, Math.min(100, count / quality.total * 100)) + '%"></span>').join('');
+  const statusLinks = statusCounts.map(({ key, label, count }) => '<a href="' + esc(routeLink('memories', { project, state: key })) +
+    '"><i aria-hidden="true" class="quality-' + key + '"></i>' + esc(label) + ' <strong>' + number(count) + '</strong></a>').join('');
+  return '<div class="panel"><div class="panel-head"><div><h2>Review and sources</h2><p class="small muted">' + esc(scope) +
+    '</p></div><label class="label" for="overview-quality-project">Project<select id="overview-quality-project"><option value="">All projects</option>' +
+    options + '</select></label></div>' + (quality.total ? '<div class="panel-body stack"><div class="stack" style="gap:8px"><h3>Memory status</h3>' +
+    '<div class="quality-track" aria-hidden="true">' + statusBars + '</div><div class="quality-labels">' + statusLinks + '</div></div>' +
+    '<div class="stack" style="gap:8px"><div class="quality-source"><h3>Recorded sources</h3><span class="small muted">' +
+    number(quality.sourceBacked) + ' of ' + number(quality.total) + ' memories</span></div>' +
+    '<div class="quality-track" aria-hidden="true"><span class="quality-active" style="width:' + coverage + '%"></span></div></div>' +
+    (Number.isFinite(quality.reviewed) ? '<p class="small muted">' + number(quality.reviewed) + ' with a recorded review</p>' : '') +
+    '</div>' : blank('memory', 'No memories in scope', 'Save a memory to see review and source counts here.')) + '</div>';
 }
 
 function renderActivity() {
@@ -634,7 +746,7 @@ function renderOverview(data) {
   const pending = data.storageHealth?.status === 'pending' ? '<p class="status small muted notice">The memory store has pending writes.</p>' : '';
   const projectNote = state.projects.length > 8 ? 'Top projects by saved memory count' : 'Saved memories by project';
   $('overview-body').innerHTML = '<div id="overview-refresh"></div>' + pending + sample + renderSummary(data.totals || {}) +
-    '<div class="split overview-columns"><div class="stack"><div class="panel"><div class="panel-head"><div><h2>Project inventory</h2>' +
+    '<div class="split overview-columns"><div class="stack">' + renderQuality(data) + '<div class="panel"><div class="panel-head"><div><h2>Project inventory</h2>' +
     '<p class="muted small">' + projectNote + '</p></div><a class="button quiet" href="#memories">Browse ' + icon('chevron', true) +
     '</a></div>' + renderProjects(state.projects) + '</div>' + renderOverviewMemories(list(data.recentMemories)) +
     '</div><div class="panel"><div class="panel-head"><h2>Recent activity</h2><span id="activity-status" class="small muted"></span></div><div id="activity-body"></div></div></div>';
@@ -642,22 +754,27 @@ function renderOverview(data) {
 }
 
 function syncProjectOptions() {
-  const contextProject = $('context-project').value;
+  const contextProject = state.context.routeProject || $('context-project').value;
   const graphProject = state.view === 'graph' ? routeParams().get('project') : null;
-  optionSet('context-project', 'Select a project', state.projects, contextProject || routeParams().get('project'));
+  optionSet('context-project', 'Select a project', state.projects, contextProject);
+  if ($('context-project').value === state.context.routeProject) state.context.routeProject = '';
   optionSet('graph-project', 'All projects', state.projects, $('graph-project').value || graphProject);
 }
 
-async function loadOverview(force = false) {
-  if (state.overviewPending) return state.overviewPending;
-  if (state.overviewLoaded && !force) return;
+async function loadOverview(force = false, project = '') {
+  if (state.overviewPending && state.overviewRequestScope === project) return state.overviewPending;
+  if (state.overviewLoaded && !force && state.overviewScope === project) return;
+  const request = ++state.overviewRequest;
+  state.overviewRequestScope = project;
   const target = $('overview-body');
   if (!state.overviewLoaded) target.innerHTML = '<div class="panel">' + skeleton('Loading workspace…') + '</div>';
   setBusy(target, true);
   state.overviewPending = (async () => {
     try {
-      const data = await api('overview');
+      const data = await api(queryPath('overview', { project }));
+      if (request !== state.overviewRequest) return;
       state.overviewLoaded = true;
+      state.overviewScope = project;
       state.projects = list(data.projects);
       state.activity = list(data.activity);
       if (typeof data.features?.liveActivity === 'boolean') state.activityEnabled = data.features.liveActivity;
@@ -666,12 +783,15 @@ async function loadOverview(force = false) {
       renderOverview(data);
       renderContextControls();
     } catch (error) {
+      if (request !== state.overviewRequest) return;
       if (!state.overviewLoaded) target.innerHTML = errorMarkup(error.message, 'overview');
-      else $('overview-refresh').innerHTML = '<div class="notice">' + errorMarkup('Could not refresh the workspace. Showing the last loaded overview.', 'overview') + '</div>';
+      else if ($('overview-refresh')) $('overview-refresh').innerHTML = '<div class="notice">' + errorMarkup('Could not refresh the workspace. Showing the last loaded overview.', 'overview') + '</div>';
       renderContextControls();
     } finally {
-      setBusy(target, false);
-      state.overviewPending = null;
+      if (request === state.overviewRequest) {
+        setBusy(target, false);
+        state.overviewPending = null;
+      }
     }
   })();
   return state.overviewPending;
@@ -705,7 +825,8 @@ function memoryQuery() {
     q: $('memory-query').value.trim(),
     project: $('memory-project').value,
     category: $('memory-category').value,
-    agent: $('memory-agent').value
+    agent: $('memory-agent').value,
+    state: $('memory-state').value
   };
 }
 
@@ -731,8 +852,8 @@ function renderMemories(data) {
     const detail = reasons.length ? '<details><summary>Why this matched</summary><ul class="small muted">' +
       reasons.map((reason) => '<li>' + esc(reason) + '</li>').join('') + '</ul></details>' : '';
     const snippet = compact(item.snippet) && compact(item.snippet) !== compact(title) ? '<p>' + esc(item.snippet) + '</p>' : '';
-    return '<li class="memory-row"><div class="memory-head"><h3>' + esc(title) + '</h3>' + dateMarkup(item.updatedAt, true) + '</div>' +
-      tags([['project', item.projectName || item.project], ['agent', item.agent], ['memory', nice(item.category)]]) + snippet +
+    return '<li class="memory-row"><div class="memory-head"><h3>' + memoryLink(item.id, item.project, title) + '</h3>' + dateMarkup(item.updatedAt, true) + '</div>' +
+      tags([['project', item.projectName || item.project], ['agent', item.agent], ['memory', nice(item.category)], ['state-' + (item.effectiveState || ''), reviewLabel(item.effectiveState)]]) + snippet +
       sourceMarkup([...list(item.sources), item.source]) + detail + '</li>';
   }).join('') + '</ul>' + (offset || total > items.length ? '<div class="list-footer"><span class="muted small">' +
     number(offset + 1) + '–' + number(offset + items.length) + ' of ' + number(total) + '</span><div class="form-actions">' +
@@ -771,9 +892,190 @@ async function loadMemories(query, offset = 0) {
   }
 }
 
+function linkCaption(link, memoryId) {
+  if (link.type === 'related') return 'Related to';
+  if (link.fromId === memoryId) return linkTypes[link.type] || nice(link.type);
+  return { supports: 'Supported by', contradicts: 'Contradicted by', supersedes: 'Superseded by' }[link.type] || nice(link.type);
+}
+
+function renderReviewHistory(events) {
+  const recent = [...list(events)].sort((a, b) => Number(b.revision) - Number(a.revision)).slice(0, 12);
+  if (!recent.length) return '';
+  const rows = recent.map((event) => {
+    const command = event.command || {};
+    const label = command.kind === 'review' ? 'Recorded review · ' + reviewLabel(command.state) :
+      command.kind === 'link' ? 'Added link · ' + (linkTypes[command.type] || nice(command.type)) :
+      command.kind === 'unlink' ? 'Removed link' : 'Memory change';
+    return '<li class="detail-row"><div class="memory-head"><strong>' + esc(label) + '</strong>' + dateMarkup(event.at) + '</div>' +
+      (command.note ? '<p class="detail-note small muted">' + esc(command.note) + '</p>' : '') + '</li>';
+  }).join('');
+  return '<section class="panel"><div class="panel-head"><h2>Recent changes</h2></div><ul class="list">' + rows + '</ul></section>';
+}
+
+function renderDetail(snapshot) {
+  const { memory, review, links } = snapshot;
+  const project = memory.project || memory.projectId || state.detail.project;
+  const effective = snapshot.effectiveState || memory.effectiveState || review?.state;
+  const title = memory.title || nice(memory.category) || 'Memory detail';
+  const content = memory.content ?? memory.snippet;
+  const ownState = review?.state || 'active';
+  const reviewOptions = Object.entries(reviewStates).filter(([key]) => key !== 'superseded')
+    .map(([key, label]) => '<option value="' + key + '"' + (key === ownState ? ' selected' : '') + '>' + label + '</option>').join('');
+  const relationOptions = Object.entries(linkTypes).map(([key, label]) => '<option value="' + key + '">' + label + '</option>').join('');
+  const replacement = list(links).find((link) => link.type === 'supersedes' && link.toId === memory.id);
+  const titleEl = $('title-memory');
+  titleEl.textContent = title;
+  $('detail-meta').innerHTML = tags([
+    ['project', memory.projectName || project], ['agent', memory.agent], ['memory', nice(memory.category)],
+    ['state-' + (effective || ''), reviewLabel(effective)]
+  ]) + (memory.createdAt || memory.updatedAt ? '<div class="small muted">' + dateMarkup(memory.createdAt || memory.updatedAt, true) + '</div>' : '');
+  $('detail-graph').href = routeLink('graph', { project, memory: memory.id });
+  $('detail-context').href = routeLink('context', { project });
+  $('detail-actions').hidden = false;
+  const linkRows = list(links).map((link) => {
+    const outgoing = link.fromId === memory.id;
+    const endpoint = outgoing ? link.toId : link.fromId;
+    const endpointTitle = (outgoing ? link.toTitle : link.fromTitle) || endpoint;
+    const endpointLink = link.orphaned ? esc(endpointTitle) : memoryLink(endpoint, project, endpointTitle);
+    return '<li class="detail-row"><div class="tags"><span class="tag memory">' + esc(linkCaption(link, memory.id)) + '</span>' +
+      endpointLink + '</div>' +
+      (link.note ? '<p class="detail-note small muted">' + esc(link.note) + '</p>' : '') +
+      '<details><summary class="small muted">Remove link</summary><div class="form-actions"><button class="button" type="button" data-unlink="' +
+      esc(link.id) + '">Remove this link</button></div></details></li>';
+  }).join('');
+  const warnings = list(snapshot.warnings).map((warning) => '<p class="status small muted notice">' + esc(warning) + '</p>').join('');
+  $('detail-body').innerHTML = warnings + '<div class="split detail-layout"><div class="stack">' +
+    '<section class="panel"><div class="panel-head"><h2>Saved memory</h2></div><div class="panel-body">' +
+    '<p class="memory-content">' + esc(content || 'No saved text.') + '</p></div></section>' +
+    '<section class="panel"><div class="panel-head"><h2>Recorded sources</h2></div><div class="panel-body detail-sources">' +
+    sourceMarkup([...list(memory.sources), ...list(snapshot.sources), memory.source]) + '</div></section>' +
+    '<section class="panel"><div class="panel-head"><h2>Connections</h2><span class="small muted">' + countLabel(list(links).length, 'link') +
+    '</span></div>' + (linkRows ? '<ul class="list">' + linkRows + '</ul>' :
+      '<div class="panel-body"><p class="small muted">No links recorded for this memory.</p></div>') +
+    '<div class="panel-body"><details id="link-editor"><summary>Add a memory link</summary><div class="detail-form" style="margin-top:10px">' +
+    '<form id="link-search" class="link-search"><label class="label" for="link-query">Find a memory in this project<input id="link-query" type="search" maxlength="500" placeholder="Search by keyword"></label>' +
+    '<button type="submit" class="button">Find</button></form>' +
+    '<form id="link-form" class="detail-form"><label class="label" for="link-target">Target memory<select id="link-target" required><option value="">Choose a memory</option></select></label>' +
+    '<p id="link-search-status" class="small muted" role="status"></p>' +
+    '<label class="label" for="link-type">Relationship from this memory<select id="link-type">' + relationOptions + '</select></label>' +
+    '<label class="label" for="link-note">Note<textarea id="link-note" maxlength="1000" rows="2" placeholder="Describe the relationship"></textarea></label>' +
+    '<div class="form-actions"><button class="button primary" id="link-submit" type="submit">Save link</button></div></form></div></details></div>' +
+    '<p id="link-edit-status" class="save-status small muted" role="status"></p></section>' +
+    '</div><div class="stack"><section class="panel"><div class="panel-head"><h2>Recorded review</h2>' + reviewTag(effective) + '</div>' +
+    '<div class="panel-body detail-form">' +
+    (effective === 'superseded' ? '<p class="small muted">This memory is superseded' +
+      (replacement?.fromId && !replacement.orphaned ? ' by ' + memoryLink(replacement.fromId, project, replacement.fromTitle || replacement.fromId) : '') + '.</p>' : '') +
+    (review?.updatedAt ? '<div class="small muted">Reviewed ' + dateMarkup(review.updatedAt, true) + '</div>' :
+      '<p class="small muted">No review recorded.</p>') +
+    '<form id="review-form" class="detail-form"><label class="label" for="review-state">Manual status<select id="review-state">' +
+    reviewOptions + '</select></label><label class="label" for="review-note">Review note<textarea id="review-note" maxlength="1000" rows="3" placeholder="Record what you checked">' +
+    esc(review?.note) + '</textarea></label><div class="form-actions"><button class="button primary" id="review-submit" type="submit">Save review</button></div></form>' +
+    '</div><p id="detail-status" class="save-status small muted" role="status"></p></section>' +
+    renderReviewHistory(snapshot.history) + '</div></div>';
+}
+
+async function loadDetail(id, project, failurePrefix = '') {
+  const store = state.detail;
+  const request = ++store.request;
+  store.id = id;
+  store.project = project;
+  store.snapshot = null;
+  $('detail-actions').hidden = true;
+  $('title-memory').textContent = 'Memory detail';
+  $('detail-meta').replaceChildren();
+  const target = $('detail-body');
+  setBusy(target, true);
+  target.innerHTML = skeleton('Loading memory…');
+  try {
+    if (!id || !project) {
+      target.innerHTML = '<div class="panel">' + blank('memory', 'Choose a memory', 'Open a record from your memories, context, or graph.',
+        '<a href="#memories" class="button quiet">Browse memories</a>') + '</div>';
+      return false;
+    }
+    const snapshot = await api(queryPath('memory', { id, project }));
+    if (request !== store.request) return false;
+    if (snapshot.memory?.id !== id || (snapshot.memory.project || snapshot.memory.projectId) !== project ||
+        !Number.isSafeInteger(snapshot.revision)) throw new Error('The server returned an unreadable memory.');
+    store.snapshot = snapshot;
+    renderDetail(snapshot);
+    return true;
+  } catch (error) {
+    if (request !== store.request) return false;
+    target.innerHTML = errorMarkup(failurePrefix + error.message, error.status === 404 ? null : 'detail');
+    return false;
+  } finally {
+    if (request === store.request) setBusy(target, false);
+  }
+}
+
+async function searchLinkTargets() {
+  const store = state.detail;
+  if (!store.snapshot || store.saving) return;
+  const request = ++store.targetRequest;
+  const detailRequest = store.request;
+  const target = $('link-search-status');
+  target.textContent = 'Looking for memories…';
+  try {
+    const q = $('link-query').value.trim();
+    const result = await api(queryPath('memories', { q, project: store.project, limit: 15 }));
+    if (request !== store.targetRequest || detailRequest !== store.request) return;
+    const choices = list(result.items).filter((item) => item.id !== store.id && (item.project || item.projectId) === store.project)
+      .map((item) => ({ id: item.id, name: item.title || item.id }));
+    optionSet('link-target', 'Choose a memory', choices, '');
+    target.textContent = choices.length ? countLabel(choices.length, 'memory', 'memories') + ' found.' : 'No other memories matched.';
+  } catch (error) {
+    if (request === store.targetRequest && detailRequest === store.request) target.textContent = error.message;
+  }
+}
+
+function detailStatus(id, message, error = false) {
+  const status = $(id);
+  if (!status) return;
+  status.textContent = message;
+  status.dataset.error = String(error);
+}
+
+async function saveDetail(kind, payload, focus) {
+  const store = state.detail;
+  if (!store.snapshot || store.saving) return;
+  const { id, project, request } = store;
+  const status = kind === 'memory-review' ? 'detail-status' : 'link-edit-status';
+  const controls = () => $('detail-body').querySelectorAll('button, select, textarea');
+  store.saving = true;
+  controls().forEach((element) => { element.disabled = true; });
+  detailStatus(status, 'Saving…');
+  try {
+    await api(kind, { body: { projectId: project, expectedRevision: store.snapshot.revision, ...payload } });
+    state.graph.snapshot = null;
+    state.overviewLoaded = false;
+    if (state.context.pack) {
+      state.context.dirty = true;
+      renderContext();
+    }
+    if (request !== store.request || state.view !== 'memory') return;
+    if (await loadDetail(id, project, 'Saved. Could not reload the memory. ')) detailStatus(status, 'Saved.');
+  } catch (error) {
+    if (request !== store.request || state.view !== 'memory') return;
+    if (error.status === 409) {
+      if (await loadDetail(id, project, 'This memory changed elsewhere. ')) detailStatus(status, 'This memory changed elsewhere. Review the latest state and try again.', true);
+    } else {
+      detailStatus(status, error.message, true);
+    }
+  } finally {
+    store.saving = false;
+    if (state.view === 'memory' && id === store.id && project === store.project) {
+      controls().forEach((element) => { element.disabled = false; });
+      if (focus === 'link-editor' && $(focus)) $(focus).querySelector('summary')?.focus();
+      else ($(focus) || $('title-memory')).focus();
+    }
+  }
+}
+
 const graphKinds = { project: 'Project', agent: 'Agent', memory: 'Memory' };
-const graphEdgeLabels = { 'belongs-to': 'Belongs to project', 'recorded-by': 'Recorded by agent' };
+const graphEdgeLabels = { 'belongs-to': 'Belongs to project', 'recorded-by': 'Recorded by agent', ...linkTypes };
 const graphEdgeClass = { 'belongs-to': ' project-edge', 'recorded-by': ' agent-edge' };
+const recordedEdge = (edge) => edge?.id && Object.hasOwn(linkTypes, edge.kind);
+const graphMemoryId = (node) => node.memoryId || (node.kind === 'memory' && node.id.startsWith('memory:') ? node.id.slice(7) : '');
 
 function graphNeighbors(edges, id) {
   return edges.filter((edge) => edge.source === id || edge.target === id).map((edge) => ({
@@ -893,6 +1195,15 @@ function graphEdgePath(edge, layout) {
   const by = b.y + b.height / 2;
   const start = 'M' + ax + ' ' + ay;
   if (edge.kind === 'belongs-to') return start + ' L' + bx + ' ' + by;
+  if (recordedEdge(edge)) {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const length = Math.hypot(dx, dy) || 1;
+    const pad = Math.min(b.width / 2 / Math.abs(dx), b.height / 2 / Math.abs(dy), .38);
+    const lift = Math.min(63, Math.max(20, length * .25));
+    return start + ' Q' + ((ax + bx) / 2 - dy / length * lift) + ' ' + ((ay + by) / 2 + dx / length * lift) +
+      ' ' + (bx - dx * pad) + ' ' + (by - dy * pad);
+  }
   const bend = (ay + by) / 2;
   return start + ' C' + ax + ' ' + bend + ' ' + bx + ' ' + bend + ' ' + bx + ' ' + by;
 }
@@ -915,7 +1226,13 @@ function graphNodeMarkup(node, position, tabIndex) {
 }
 
 function renderGraphList() {
-  $('graph-list').innerHTML = '<ul class="list">' + state.graph.nodes.map((node) => '<li class="graph-row"><button type="button" class="button" data-node="' +
+  const graph = state.graph;
+  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+  const links = graph.edges.filter(recordedEdge).map((edge) => '<li class="graph-row"><button type="button" class="button" data-edge-record="' +
+    esc(edge.id) + '" aria-pressed="false"><span>' + esc(byId.get(edge.source)?.label || edge.source) + ' · ' +
+    esc(graphEdgeLabels[edge.kind]) + ' · ' + esc(byId.get(edge.target)?.label || edge.target) + '</span></button></li>').join('');
+  $('graph-list').innerHTML = (links ? '<details open class="panel-body"><summary>Recorded memory links</summary><ul class="list">' + links + '</ul></details>' : '') +
+    '<ul class="list">' + graph.nodes.map((node) => '<li class="graph-row"><button type="button" class="button" data-node="' +
     esc(node.id) + '" aria-pressed="false">' + icon(node.kind, true) + '<span>' + esc(node.label || node.id) +
     '</span><span class="tag ' + node.kind + '">' + graphKinds[node.kind] + '</span></button></li>').join('') + '</ul>';
 }
@@ -926,12 +1243,27 @@ function renderGraphMap() {
   const svg = $('graph-svg');
   const clusters = layout.clusters.map(({ cx, cy, rx, ry }) => '<ellipse class="cluster-area" cx="' + cx + '" cy="' + cy +
     '" rx="' + rx + '" ry="' + ry + '"/>').join('');
-  const edges = graph.edges.map((edge, i) => '<path class="graph-edge' + (graphEdgeClass[edge.kind] || '') +
-    '" data-edge="' + i + '" d="' + graphEdgePath(edge, layout) + '"/>').join('');
+  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+  const structural = [];
+  const recordedLinks = [];
+  graph.edges.forEach((edge, i) => {
+    const path = graphEdgePath(edge, layout);
+    const recorded = recordedEdge(edge);
+    const visual = '<path class="graph-edge' + (recorded ? ' recorded-edge ' + edge.kind : graphEdgeClass[edge.kind] || '') +
+      '" data-edge="' + i + '" d="' + path + '"' + (recorded && edge.kind !== 'related' ? ' marker-end="url(#graph-arrow)"' : '') + '/>';
+    if (recorded) {
+      const from = byId.get(edge.source)?.label || edge.source;
+      const to = byId.get(edge.target)?.label || edge.target;
+      const label = from + ' · ' + graphEdgeLabels[edge.kind] + ' · ' + to;
+      recordedLinks.push('<g class="graph-link-group" data-edge-record="' + esc(edge.id) + '" role="button" tabindex="-1" aria-pressed="false" aria-label="' +
+        esc(label) + '"><title>' + esc(label) + '</title>' + visual + '<path class="graph-edge-hit" d="' + path + '"/></g>');
+    } else structural.push(visual);
+  });
   const nodes = graph.nodes.map((node, i) => graphNodeMarkup(node, layout.positions.get(node.id), i === 0 ? 0 : -1)).join('');
-  svg.innerHTML = '<defs><pattern id="map-dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="var(--graph-dot)"/></pattern></defs>' +
-    '<rect width="100%" height="100%" fill="url(#map-dots)"/><g id="graph-transform"><g aria-hidden="true">' + clusters + edges + '</g>' +
-    nodes + '<g class="graph-tooltip" id="graph-tooltip" aria-hidden="true"></g></g>';
+  svg.innerHTML = '<defs><pattern id="map-dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="var(--graph-dot)"/></pattern>' +
+    '<marker id="graph-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="graph-arrow" d="M0 1 9 5 0 9z"/></marker></defs>' +
+    '<rect width="100%" height="100%" fill="url(#map-dots)"/><g id="graph-transform"><g aria-hidden="true">' + clusters + structural.join('') + '</g>' +
+    recordedLinks.join('') + nodes + '<g class="graph-tooltip" id="graph-tooltip" aria-hidden="true"></g></g>';
   fitGraph();
 }
 
@@ -1015,15 +1347,27 @@ function renderGraphInspector() {
   const all = new Map(list(graph.snapshot?.nodes).map((node) => [node.id, node]));
   const selected = all.get(graph.selected);
   const inspector = $('graph-inspector');
+  const selectedEdge = graph.edges.find((edge) => recordedEdge(edge) && edge.id === graph.selectedEdge);
+  if (selectedEdge) {
+    const from = all.get(selectedEdge.source);
+    const to = all.get(selectedEdge.target);
+    const record = (node) => node ? memoryLink(graphMemoryId(node), node.project, node.label || node.id) : '';
+    inspector.innerHTML = '<div class="panel-head"><h3>Link details</h3></div><div class="panel-body">' +
+      '<p>' + record(from) + '</p><div class="tags"><span class="tag memory">' + esc(graphEdgeLabels[selectedEdge.kind]) + '</span></div>' +
+      '<p>' + record(to) + '</p>' + (selectedEdge.note ? '<p class="small muted detail-note">' + esc(selectedEdge.note) + '</p>' : '') + '</div>';
+    return;
+  }
   if (!selected) {
     inspector.innerHTML = '<div class="panel-head"><h3>Node details</h3></div>' +
       blank('graph', 'Select a node', 'See its stored details and follow its recorded connections.');
     return;
   }
-  const adjacent = graphNeighbors(list(graph.snapshot.edges), selected.id).filter((item) => all.has(item.id));
+  const adjacent = graphNeighbors(graph.edges, selected.id).filter((item) => all.has(item.id));
   const connected = adjacent.length ? '<details open><summary>' + countLabel(adjacent.length, 'connection') + '</summary><div class="related">' +
     adjacent.map(({ id, edge }) => {
       const node = all.get(id);
+      if (recordedEdge(edge)) return '<button type="button" class="button quiet" data-edge-record="' + esc(edge.id) +
+        '"><span>' + esc(graphEdgeLabels[edge.kind]) + ' · ' + esc(node.label || node.id) + '</span></button>';
       return '<button type="button" class="button quiet" data-related="' + esc(id) + '" title="' +
         esc(graphEdgeLabels[edge.kind] || nice(edge.kind) || 'Connection') + '">' + icon(node.kind, true) + '<span>' +
         esc(node.label || node.id) + '</span></button>';
@@ -1032,36 +1376,54 @@ function renderGraphInspector() {
   const snippet = compact(selected.snippet) && compact(selected.snippet) !== compact(selected.label)
     ? '<p class="small">' + esc(selected.snippet) + '</p>' : '';
   inspector.innerHTML = '<div class="panel-head"><h3>Node details</h3></div><div class="panel-body">' +
-    tags([[selected.kind, graphKinds[selected.kind]], ['memory', nice(selected.category)]]) + '<h3>' + esc(selected.label || selected.id) + '</h3>' +
+    tags([[selected.kind, graphKinds[selected.kind]], ['memory', nice(selected.category)], ['state-' + (selected.effectiveState || ''), reviewLabel(selected.effectiveState)]]) +
+    '<h3>' + (selected.kind === 'memory' ? memoryLink(graphMemoryId(selected), selected.project, selected.label || selected.id) : esc(selected.label || selected.id)) + '</h3>' +
     (project && selected.kind !== 'project' ? '<p class="muted small">' + esc(project) + '</p>' : '') + snippet +
     (selected.kind === 'memory' ? sourceMarkup([...list(selected.sources), selected.source]) : '') + connected + '</div>';
 }
 
-function selectGraphNode(id, { center = false, focus = false } = {}) {
+function updateGraphSelection() {
   const graph = state.graph;
-  graph.selected = id;
+  const id = graph.selected;
+  const selectedEdge = graph.edges.find((edge) => recordedEdge(edge) && edge.id === graph.selectedEdge);
   const connected = new Set(graphNeighbors(graph.edges, id).map((item) => item.id));
   connected.add(id);
-  const focusable = $('graph-svg').querySelector('[data-node][tabindex="0"]')?.dataset.node;
-  const tabStop = id || focusable || graph.nodes[0]?.id;
+  if (selectedEdge) { connected.add(selectedEdge.source); connected.add(selectedEdge.target); }
+  const hasSelection = !!id || !!selectedEdge;
+  const tabStop = id || selectedEdge?.source || graph.nodes[0]?.id;
   $('graph-body').querySelectorAll('[data-node]').forEach((element) => {
     const nodeId = element.dataset.node;
     element.setAttribute('aria-pressed', String(id === nodeId));
     if (element instanceof SVGElement) {
-      element.classList.toggle('unrelated', !!id && !connected.has(nodeId));
+      element.classList.toggle('unrelated', hasSelection && !connected.has(nodeId));
       element.setAttribute('tabindex', nodeId === tabStop ? '0' : '-1');
     }
   });
   if (graph.mode === 'map') {
     $('graph-svg').querySelectorAll('[data-edge]').forEach((element) => {
       const edge = graph.edges[Number(element.dataset.edge)];
-      const active = edge.source === id || edge.target === id;
+      const active = edge === selectedEdge || edge.source === id || edge.target === id;
       element.classList.toggle('active', active);
-      element.classList.toggle('unrelated', !!id && !active);
+      element.classList.toggle('unrelated', hasSelection && !active);
+    });
+    const linkTabStop = graph.selectedEdge || graph.edges.find(recordedEdge)?.id;
+    $('graph-svg').querySelectorAll('[data-edge-record]').forEach((element) => {
+      element.setAttribute('aria-pressed', String(element.dataset.edgeRecord === graph.selectedEdge));
+      element.setAttribute('tabindex', element.dataset.edgeRecord === linkTabStop ? '0' : '-1');
     });
     renderGraphTooltip(id);
   }
+  $('graph-list').querySelectorAll('[data-edge-record]').forEach((element) => {
+    element.setAttribute('aria-pressed', String(element.dataset.edgeRecord === graph.selectedEdge));
+  });
   renderGraphInspector();
+}
+
+function selectGraphNode(id, { center = false, focus = false } = {}) {
+  const graph = state.graph;
+  graph.selected = id;
+  graph.selectedEdge = '';
+  updateGraphSelection();
   if (center) centerGraphNode(id);
   if (focus) {
     const target = graph.mode === 'map' ? $('graph-svg') : $('graph-list');
@@ -1069,11 +1431,21 @@ function selectGraphNode(id, { center = false, focus = false } = {}) {
   }
 }
 
+function selectGraphEdge(id, fromInspector) {
+  const graph = state.graph;
+  if (!graph.edges.some((edge) => recordedEdge(edge) && edge.id === id)) return;
+  graph.selected = '';
+  graph.selectedEdge = id;
+  updateGraphSelection();
+  if (fromInspector) $('graph-inspector').querySelector('a')?.focus();
+}
+
 function renderGraph() {
   const graph = state.graph;
   if (!graph.snapshot) return;
   const search = $('graph-query').value.trim().toLowerCase();
   const kind = $('graph-kind').value;
+  const relation = $('graph-relation').value;
   const nodes = list(graph.snapshot.nodes).filter((node) => Object.hasOwn(graphKinds, node.kind));
   const matches = nodes.filter((node) => (!kind || node.kind === kind) &&
     (!search || [node.label, node.snippet, node.project, node.category].filter(Boolean).join(' ').toLowerCase().includes(search)));
@@ -1081,17 +1453,26 @@ function renderGraph() {
   if (search && !kind) {
     matches.forEach((node) => graphNeighbors(list(graph.snapshot.edges), node.id).forEach((item) => ids.add(item.id)));
   }
+  const matchingEdges = list(graph.snapshot.edges).filter((edge) => ids.has(edge.source) && ids.has(edge.target) &&
+    (!relation || (relation === 'recorded' ? recordedEdge(edge) : edge.kind === relation)));
+  if (relation) {
+    const endpoints = new Set(matchingEdges.flatMap((edge) => [edge.source, edge.target]));
+    for (const id of ids) if (!endpoints.has(id)) ids.delete(id);
+  }
   graph.nodes = nodes.filter((node) => ids.has(node.id));
-  graph.edges = list(graph.snapshot.edges).filter((edge) => ids.has(edge.source) && ids.has(edge.target));
+  graph.edges = matchingEdges;
   if (graph.selected && !ids.has(graph.selected)) graph.selected = '';
+  if (graph.selectedEdge && !graph.edges.some((edge) => recordedEdge(edge) && edge.id === graph.selectedEdge)) graph.selectedEdge = '';
   const matchingCount = search && matches.length !== graph.nodes.length ? countLabel(matches.length, 'match', 'matches') + ' · ' : '';
   $('graph-count').textContent = matchingCount + countLabel(graph.nodes.length, 'node') + ' · ' + countLabel(graph.edges.length, 'connection');
   $('graph-body').hidden = !graph.nodes.length;
   $('graph-legend').hidden = !graph.nodes.length;
   const note = graph.snapshot.truncated ? '<div class="panel-body small muted">Showing ' +
     number(graph.snapshot.shownMemories) + ' memories in this snapshot. Filter by project to explore a narrower set.</div>' : '';
-  $('graph-status').innerHTML = graph.nodes.length ? note : blank('graph', search || kind ? 'No matching nodes' : 'No relationships yet',
-    search || kind ? 'Change the name or node type filter.' : 'The graph fills in as project and agent memories are stored.');
+  const focused = graph.focusMemory && graph.nodes.find((node) => graphMemoryId(node) === graph.focusMemory);
+  const missing = graph.focusMemory && !focused ? '<p class="panel-body small muted">This memory is outside the current graph view.</p>' : '';
+  $('graph-status').innerHTML = graph.nodes.length ? note + missing : missing + blank('graph', search || kind || relation ? 'No matching nodes' : 'No relationships yet',
+    search || kind || relation ? 'Change the name, node type, or relationship filter.' : 'The graph fills in as project and agent memories are stored.');
   if (!graph.nodes.length) return;
   $('graph-stage').hidden = graph.mode !== 'map';
   $('graph-list').hidden = graph.mode !== 'list';
@@ -1099,12 +1480,16 @@ function renderGraph() {
   $('graph-mode-list').setAttribute('aria-pressed', String(graph.mode === 'list'));
   renderGraphList();
   if (graph.mode === 'map') renderGraphMap();
-  selectGraphNode(graph.selected);
+  if (focused) {
+    graph.focusMemory = '';
+    selectGraphNode(focused.id);
+  } else updateGraphSelection();
 }
 
-async function loadGraph(project, force = false) {
+async function loadGraph(project, force = false, memory = '') {
   const graph = state.graph;
-  if (!force && graph.snapshot && graph.project === project) {
+  graph.focusMemory = memory;
+  if (!force && !memory && graph.snapshot && graph.project === project) {
     renderGraph();
     return;
   }
@@ -1115,13 +1500,14 @@ async function loadGraph(project, force = false) {
   graph.snapshot = null;
   graph.project = project;
   graph.selected = '';
+  graph.selectedEdge = '';
   setBusy($('graph-panel'), true);
   $('graph-status').innerHTML = skeleton('Loading relationships…');
   $('graph-count').textContent = '';
   $('graph-body').hidden = true;
   $('graph-legend').hidden = true;
   try {
-    const snapshot = await api(queryPath('graph', { project }), { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]) });
+    const snapshot = await api(queryPath('graph', { project, memory }), { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]) });
     if (seq !== graph.request) return;
     graph.snapshot = snapshot;
     renderGraph();
@@ -1178,29 +1564,43 @@ function renderContext() {
   const selection = contextReasonList(entries, (entry) => {
     const title = shorten(compact(entry.excerpt), 120) || nice(entry.category) || entry.id;
     const reason = list(entry.reasons).map((detail) => '<p class="small muted">' + esc(detail) + '</p>').join('');
-    return '<li><strong>' + esc(title) + '</strong><div class="small muted">' + esc([entry.projectName, entry.agentTool, nice(entry.category)].filter(Boolean).join(' · ')) +
-      '</div>' + reason + sourceMarkup(entry.sources) + '</li>';
+    const links = list(entry.related).map((relation) => {
+      const directional = { fromId: relation.direction === 'outgoing' ? entry.id : relation.otherMemoryId, type: relation.type };
+      return '<p class="small">' + esc(linkCaption(directional, entry.id)) + ' ' +
+        memoryLink(relation.otherMemoryId, entry.projectId, relation.title || relation.otherMemoryId) + '</p>';
+    }).join('');
+    return '<li><strong>' + memoryLink(entry.id, entry.projectId, title) + '</strong><div class="small muted">' +
+      esc([entry.projectName, entry.agentTool, nice(entry.category)].filter(Boolean).join(' · ')) +
+      '</div>' + reason + sourceMarkup(entry.sources) + links + '</li>';
   });
   const reasonLabels = {
     duplicate: 'Matches a memory already considered.',
     budget: 'Would exceed the selected budget.',
     limit: 'Beyond the brief’s memory limit.',
     empty: 'Contains no memory text.',
-    lookback: 'Falls outside the selected time range.'
+    lookback: 'Falls outside the selected time range.',
+    archived: 'Archived in a recorded review.',
+    contested: 'Marked as needing review.',
+    superseded: 'Superseded by a recorded replacement.'
   };
-  const rejections = contextReasonList(excluded, (entry) => '<li><strong class="mono">' + esc(entry.id) +
+  const rejections = contextReasonList(excluded, (entry) => '<li><strong class="mono">' +
+    memoryLink(entry.id, entry.projectId || (pack.scope === 'project' ? pack.projectId : ''), entry.title || entry.id) +
     '</strong><p class="small muted">' + esc(reasonLabels[entry.reason] || nice(entry.reason)) + '</p></li>');
-  const scope = pack.scope === 'cross-project' ? 'Cross-project' : 'Selected project';
-  output.innerHTML = '<div class="panel-body stack">' + (dirty ? '<p class="status small" role="status">Task details changed. Assemble again to update this preview.</p>' : '') +
+  const projectName = state.projects.find((item) => item.id === pack.projectId)?.name || pack.projectId;
+  const scope = pack.scope === 'cross-project' ? 'Cross-project · ' + projectName : projectName;
+  output.innerHTML = '<div class="panel-body stack">' + (dirty ? '<p class="status small" role="status">This preview is out of date. Assemble again to refresh it.</p>' : '') +
     '<div class="form-actions">' + tags([['project', scope], ['memory', number(budget.estimatedTokens) + ' / ' + number(budget.tokenBudget) + ' estimated tokens']]) +
     (canCopy ? '<button class="button toolbar-end" id="context-copy" type="button">' + icon('copy') + 'Copy brief</button>' : '') + '</div>' +
+    '<p id="copy-status" class="small muted" role="status" hidden></p><p class="small muted">' +
+    countLabel(entries.length, 'included memory', 'included memories') + ' · ' + number(excluded.length) + ' excluded · ' +
+    number(budget.usedChars) + ' / ' + number(budget.maxChars) + ' characters</p>' +
     warningMarkup +
     (pack.markdown && pack.enabled && entries.length ? '<pre class="context-preview mono" id="context-text" tabindex="0" aria-label="Assembled context markdown">' + esc(pack.markdown) + '</pre>' :
-      blank('context', pack.enabled ? 'No memories fit this task' : 'Context assembly is turned off', pack.enabled ? 'Try a more specific task or a larger budget.' : 'Enable it in Features to build a brief.')) +
+      blank('context', pack.enabled ? 'No memories fit this task' : 'Context assembly is turned off', pack.enabled ? 'Review any exclusions or try a different task.' : 'Enable it in Features to build a brief.')) +
     '<div class="context-reasons">' +
     (entries.length ? '<details open><summary>Included · ' + number(entries.length) + '</summary>' + selection + '</details>' : '') +
     (excluded.length ? '<details><summary>Excluded · ' + number(excluded.length) + '</summary>' + rejections + '</details>' : '') +
-    '</div><p id="copy-status" class="small muted" role="status" hidden></p></div>';
+    '</div></div>';
 }
 
 async function assembleContext() {
@@ -1245,6 +1645,84 @@ async function copyContext() {
     status.textContent = 'Clipboard access is unavailable. Select and copy the preview text.';
   }
   status.hidden = false;
+}
+
+const checkStates = { pass: ['ok', 'Passed'], warn: ['warn', 'Review'], unknown: ['', 'Unknown'], error: ['error', 'Error'] };
+const installStates = {
+  complete: ['ok', 'Files present'], partial: ['warn', 'Some files present'], missing: ['', 'Files missing'],
+  'not-checked': ['', 'Unchecked'], blocked: ['error', 'Check blocked']
+};
+
+function checkTag(value, labels) {
+  const [kind, label] = Object.hasOwn(labels, value) ? labels[value] : ['', 'Unknown'];
+  return '<span class="tag check-' + kind + '">' + label + '</span>';
+}
+
+function commandMarkup(command) {
+  if (typeof command !== 'string' || !command.trim()) return '';
+  return '<div class="form-actions"><code class="mono">' + esc(command) + '</code><button type="button" class="button quiet" data-copy-command="' +
+    esc(command) + '" aria-label="Copy command">' + icon('copy', true) + 'Copy</button><span class="small muted" role="status"></span></div>';
+}
+
+function docsLink(value) {
+  if (typeof value !== 'string') return '';
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:') return '';
+    return '<a class="button quiet" href="' + esc(url.href) + '" target="_blank" rel="noopener noreferrer">Documentation ' +
+      icon('diagonal', true) + '</a>';
+  } catch { return ''; }
+}
+
+function renderIntegrations(data) {
+  const checks = list(data.checks);
+  const agents = list(data.agents);
+  const checkRows = checks.map((check) => '<li class="check-row"><h3>' + esc(check.label || check.id) + '</h3><div class="check-result"><p class="small muted">' +
+    esc(check.detail) + '</p>' + commandMarkup(check.command) + '</div>' + checkTag(check.status, checkStates) + '</li>').join('');
+  const agentRows = agents.map((agent) => '<li class="check-row"><h3>' + esc(agent.label || agent.id) + '</h3><div class="check-result">' +
+    tags(list(agent.capabilities).map((value) => ['memory', value])) + (agent.detail ? '<p class="small muted">' + esc(agent.detail) + '</p>' : '') +
+    (agent.note ? '<p class="small muted">' + esc(agent.note) + '</p>' : '') + commandMarkup(agent.command) +
+    '<div class="form-actions">' + docsLink(agent.docs) + '</div></div>' + checkTag(agent.installation, installStates) + '</li>').join('');
+  $('integrations-body').innerHTML = '<div class="stack"><section class="panel"><div class="panel-head"><div><h2>Local diagnostics</h2>' +
+    (data.checkedAt ? '<p class="small muted">Last checked ' + dateMarkup(data.checkedAt) + '</p>' : '') + '</div>' +
+    (typeof data.diagnostics === 'string' && data.diagnostics ? '<div class="form-actions"><button class="button" type="button" id="diagnostics-copy">' + icon('copy', true) +
+    'Copy report</button><span class="small muted" role="status"></span></div>' : '') + '</div>' +
+    (checkRows ? '<ul class="list">' + checkRows + '</ul>' : blank('activity', 'No diagnostic results', 'Run checks to refresh the local status.')) +
+    '</section><section class="panel"><div class="panel-head"><div><h2>Supported agents</h2>' +
+    '<p class="small muted">Installation status reflects managed files in the checked scope.</p></div></div>' +
+    (agentRows ? '<ul class="list">' + agentRows + '</ul>' : blank('integrations', 'No agent data', 'Run checks to load the support catalog.')) +
+    '</section></div>';
+}
+
+async function loadIntegrations() {
+  const store = state.integrations;
+  if (store.pending) return;
+  store.pending = true;
+  const target = $('integrations-body');
+  $('integrations-refresh').disabled = true;
+  setBusy(target, true);
+  target.innerHTML = '<div class="panel">' + skeleton('Running local checks…') + '</div>';
+  try {
+    store.snapshot = await api('integrations');
+    renderIntegrations(store.snapshot);
+  } catch (error) {
+    target.innerHTML = errorMarkup(error.message, 'integrations');
+  } finally {
+    store.pending = false;
+    $('integrations-refresh').disabled = false;
+    setBusy(target, false);
+  }
+}
+
+async function copyIntegrationText(value, message, button) {
+  const status = button.nextElementSibling;
+  if (!value || !status) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    status.textContent = message;
+  } catch {
+    status.textContent = 'Clipboard access is unavailable.';
+  }
 }
 
 function renderFeatures() {
@@ -1362,23 +1840,32 @@ function routeParams() {
   return new URLSearchParams(location.hash.split('?')[1] || '');
 }
 
+function changeMemorySearch() {
+  const query = memoryQuery();
+  const route = routeLink('memories', query);
+  if (location.hash !== route) location.hash = route;
+  else void loadMemories(query);
+}
+
 function changeView(moveFocus = false) {
   const hash = location.hash.slice(1).split('?')[0];
   const view = Object.hasOwn(viewNames, hash) ? hash : 'overview';
   const previous = state.view;
+  const previousRoute = state.route;
   state.view = view;
+  state.route = location.hash || '#overview';
   $('crumb').textContent = viewNames[view];
-  document.title = viewNames[view] + ' · Shadow Brain';
+  document.title = viewNames[view] + ' · Agent Shadow Brain';
   for (const name of Object.keys(viewNames)) {
     const section = $('page-' + name);
     section.hidden = name !== view;
     section.classList.remove('entered');
     const link = document.querySelector('[data-view="' + name + '"]');
-    if (name === view) link.setAttribute('aria-current', 'page');
-    else link.removeAttribute('aria-current');
+    if (name === view || name === 'memories' && view === 'memory') link?.setAttribute('aria-current', 'page');
+    else link?.removeAttribute('aria-current');
   }
   if (previous !== view) $('page-' + view).classList.add('entered');
-  if (moveFocus) {
+  if (moveFocus && (previous !== view || view === 'memory')) {
     window.scrollTo(0, 0);
     $('title-' + view).focus({ preventScroll: true });
   }
@@ -1386,19 +1873,44 @@ function changeView(moveFocus = false) {
   const project = params.get('project') || '';
   switch (view) {
     case 'overview':
-      void loadOverview(previous !== '' && previous !== 'overview');
+      void loadOverview(previous !== '' && previous !== 'overview', project);
       void loadFeatures();
       break;
-    case 'memories':
-      if (project) optionSet('memory-project', 'All projects', state.projects, project);
-      void loadMemories({ ...memoryQuery(), project: project || $('memory-project').value });
+    case 'memories': {
+      const query = { q: params.get('q') || '', project, category: params.get('category') || '', agent: params.get('agent') || '', state: params.get('state') || '' };
+      $('memory-query').value = query.q;
+      if (state.projects.length) optionSet('memory-project', 'All projects', state.projects, query.project);
+      $('memory-state').value = query.state;
+      void loadMemories(query);
       break;
-    case 'graph':
+    }
+    case 'memory': {
+      if (previous && previous !== 'memory') state.detail.back = previousRoute;
+      const back = $('detail-back');
+      const name = state.detail.back.slice(1).split('?')[0];
+      back.href = state.detail.back;
+      back.innerHTML = icon('left', true) + esc(viewNames[name] || 'Memories');
+      void loadDetail(params.get('id') || '', project);
+      break;
+    }
+    case 'graph': {
       void loadOverview();
       if (project) optionSet('graph-project', 'All projects', state.projects, project);
-      void loadGraph(project || $('graph-project').value, previous !== '' && previous !== 'graph');
+      else $('graph-project').value = '';
+      const memory = params.get('memory') || '';
+      if (memory) ['graph-query', 'graph-kind', 'graph-relation'].forEach((id) => { $(id).value = ''; });
+      void loadGraph(project, previous !== '' && previous !== 'graph', memory);
       break;
+    }
     case 'context':
+      if (project) {
+        state.context.routeProject = project;
+        syncProjectOptions();
+        if (state.context.pack && state.context.pack.projectId !== project) {
+          state.context.dirty = true;
+          renderContext();
+        }
+      }
       void loadOverview();
       void loadFeatures(previous !== '');
       renderContextControls();
@@ -1407,6 +1919,10 @@ function changeView(moveFocus = false) {
       featureStatus('');
       void loadFeatures(true);
       break;
+    case 'integrations':
+      if (state.integrations.snapshot) renderIntegrations(state.integrations.snapshot);
+      else void loadIntegrations();
+      break;
   }
 }
 
@@ -1414,12 +1930,29 @@ function graphSelectFromList(id, fromInspector) {
   if (!state.graph.nodes.some((node) => node.id === id)) {
     $('graph-query').value = '';
     $('graph-kind').value = '';
+    $('graph-relation').value = '';
     renderGraph();
   }
   selectGraphNode(id, { center: fromInspector, focus: fromInspector });
 }
 
 function handleGraphKeyboard(event) {
+  const edge = event.target.closest('[data-edge-record]');
+  if (edge) {
+    const links = Array.from($('graph-svg').querySelectorAll('[data-edge-record]'));
+    const index = links.indexOf(edge);
+    const nextIndex = { ArrowLeft: Math.max(index - 1, 0), ArrowRight: Math.min(index + 1, links.length - 1), Home: 0, End: links.length - 1 }[event.key];
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      selectGraphEdge(edge.dataset.edgeRecord);
+    } else if (Number.isInteger(nextIndex)) {
+      event.preventDefault();
+      const next = links[nextIndex];
+      selectGraphEdge(next.dataset.edgeRecord);
+      next.focus();
+    }
+    return;
+  }
   const target = event.target.closest('[data-node]');
   if (!target) return;
   if (event.key === 'Enter' || event.key === ' ') {
@@ -1451,11 +1984,27 @@ function handleGraphKeyboard(event) {
 $('theme-toggle').addEventListener('click', () => setPreference('theme', document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
 $('theme-setting').addEventListener('change', (event) => setPreference('theme', event.target.value));
 $('motion-setting').addEventListener('change', (event) => setPreference('motion', event.target.value));
-$('memory-form').addEventListener('submit', (event) => { event.preventDefault(); void loadMemories(memoryQuery()); });
-['memory-project', 'memory-category', 'memory-agent'].forEach((id) => $(id).addEventListener('change', () => { void loadMemories(memoryQuery()); }));
+$('memory-form').addEventListener('submit', (event) => { event.preventDefault(); changeMemorySearch(); });
+['memory-project', 'memory-category', 'memory-agent', 'memory-state'].forEach((id) => $(id).addEventListener('change', changeMemorySearch));
+$('overview-body').addEventListener('change', (event) => {
+  if (event.target.id !== 'overview-quality-project') return;
+  const project = event.target.value;
+  const route = routeLink('overview', { project });
+  window.history.replaceState(null, '', route);
+  state.route = route;
+  void loadOverview(true, project).then(() => {
+    if (state.view === 'overview' && state.route === route) $('overview-quality-project')?.focus();
+  });
+});
+$('integrations-refresh').addEventListener('click', () => { void loadIntegrations(); });
 $('graph-query').addEventListener('input', renderGraph);
 $('graph-kind').addEventListener('change', renderGraph);
-$('graph-project').addEventListener('change', (event) => { void loadGraph(event.target.value); });
+$('graph-relation').addEventListener('change', renderGraph);
+$('graph-project').addEventListener('change', (event) => {
+  const route = routeLink('graph', { project: event.target.value });
+  if (location.hash !== route) location.hash = route;
+  else void loadGraph(event.target.value);
+});
 ['map', 'list'].forEach((mode) => $('graph-mode-' + mode).addEventListener('click', () => {
   state.graph.mode = mode;
   $('graph-mode-map').setAttribute('aria-pressed', String(mode === 'map'));
@@ -1472,7 +2021,7 @@ $('graph-svg').addEventListener('focusin', (event) => {
 });
 $('graph-svg').addEventListener('focusout', () => renderGraphTooltip(state.graph.selected));
 $('graph-svg').addEventListener('pointerdown', (event) => {
-  if (event.button !== 0 || !event.isPrimary || event.target.closest('[data-node]')) return;
+  if (event.button !== 0 || !event.isPrimary || event.target.closest('[data-node],[data-edge-record]')) return;
   const graph = state.graph;
   graph.drag = { id: event.pointerId, x: event.clientX - graph.panX, y: event.clientY - graph.panY };
   $('graph-svg').setPointerCapture(event.pointerId);
@@ -1492,7 +2041,7 @@ $('graph-svg').addEventListener('lostpointercapture', () => {
 window.addEventListener('resize', () => {
   if (state.view === 'graph' && state.graph.mode === 'map' && state.graph.nodes.length) {
     renderGraphMap();
-    selectGraphNode(state.graph.selected);
+    updateGraphSelection();
   }
 });
 
@@ -1508,22 +2057,42 @@ $('context-form').addEventListener('input', () => {
   }
 });
 
+$('detail-body').addEventListener('submit', (event) => {
+  const { id } = state.detail;
+  switch (event.target.id) {
+    case 'review-form':
+      event.preventDefault();
+      void saveDetail('memory-review', { memoryId: id, state: $('review-state').value, note: $('review-note').value.trim() }, 'review-submit');
+      break;
+    case 'link-search':
+      event.preventDefault();
+      void searchLinkTargets();
+      break;
+    case 'link-form':
+      event.preventDefault();
+      void saveDetail('memory-link', { fromId: id, toId: $('link-target').value, type: $('link-type').value, note: $('link-note').value.trim() }, 'link-editor');
+      break;
+  }
+});
+
 document.addEventListener('click', (event) => {
-  const element = event.target.closest('[data-retry],[data-memory-clear],[data-memory-page],[data-node],[data-related],[data-feature],#context-copy,.skip');
+  const element = event.target.closest('[data-retry],[data-memory-clear],[data-memory-page],[data-node],[data-related],[data-edge-record],[data-feature],[data-unlink],[data-copy-command],#diagnostics-copy,#context-copy,.skip');
   if (!element) return;
   const data = element.dataset;
   if (data.retry) {
     switch (data.retry) {
-      case 'overview': void loadOverview(true); break;
+      case 'overview': void loadOverview(true, state.view === 'overview' ? routeParams().get('project') || '' : ''); break;
       case 'memories': void loadMemories(state.memory.query || memoryQuery(), state.memory.offset); break;
-      case 'graph': void loadGraph(state.graph.project, true); break;
+      case 'graph': void loadGraph(state.graph.project, true, state.graph.focusMemory); break;
+      case 'detail': void loadDetail(state.detail.id, state.detail.project); break;
+      case 'integrations': void loadIntegrations(); break;
       case 'context': $('context-form').requestSubmit(); break;
       case 'features': void loadFeatures(true); break;
     }
   } else if (Object.hasOwn(data, 'memoryClear')) {
-    ['memory-query', 'memory-project', 'memory-category', 'memory-agent'].forEach((id) => { $(id).value = ''; });
+    ['memory-query', 'memory-project', 'memory-category', 'memory-agent', 'memory-state'].forEach((id) => { $(id).value = ''; });
     $('memory-query').focus();
-    void loadMemories(memoryQuery());
+    changeMemorySearch();
   } else if (data.memoryPage) {
     const { query, offset, limit } = state.memory;
     const step = data.memoryPage === 'next' ? limit : -limit;
@@ -1533,10 +2102,18 @@ document.addEventListener('click', (event) => {
     selectGraphNode(data.node);
   } else if (data.related) {
     graphSelectFromList(data.related, true);
+  } else if (data.edgeRecord) {
+    selectGraphEdge(data.edgeRecord, $('graph-inspector').contains(element));
+  } else if (data.unlink) {
+    void saveDetail('memory-unlink', { memoryId: state.detail.id, linkId: data.unlink }, 'link-editor');
+  } else if (data.copyCommand) {
+    void copyIntegrationText(data.copyCommand, 'Command copied.', element);
   } else if (data.feature) {
     void toggleFeature(data.feature);
   } else if (element.id === 'context-copy') {
     void copyContext();
+  } else if (element.id === 'diagnostics-copy') {
+    void copyIntegrationText(state.integrations.snapshot?.diagnostics, 'Diagnostic report copied.', element);
   } else if (element.classList.contains('skip')) {
     event.preventDefault();
     $('main-content').focus();

@@ -376,6 +376,12 @@ export type {
 } from './brain/memory-seeder.js';
 
 // Watchers
+export * from './brain/memory-annotations.js';
+export * from './brain/memory-sources.js';
+export * from './brain/activity-journal.js';
+export { reportAgentActivity } from './brain/activity-reporting.js';
+export { CLIENT_CAPABILITIES, inspectClientIntegrations } from './brain/client-integrations.js';
+export { serveMCPStdio, runMemoryMCPStdio } from './brain/mcp-stdio.js';
 export { FileWatcher } from './watchers/file-watcher.js';
 export { GitWatcher } from './watchers/git-watcher.js';
 export type { GitState, GitCommit } from './watchers/git-watcher.js';
