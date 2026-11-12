@@ -110,7 +110,12 @@ describe('project-only client integration checks', () => {
       const partial = inspectClientIntegrations({ projectDir });
       expect(partial.agents.find(agent => agent.id === 'deepseek-harness')).toMatchObject({ installation: 'blocked' });
       expect(partial.agents.find(agent => agent.id === 'codex')).toMatchObject({ installation: 'missing' });
-      expect(JSON.stringify(partial)).not.toContain(projectDir);
+      expect(partial.diagnostics).not.toContain(projectDir);
+      expect(partial.agents.every(agent => !agent.detail.includes(projectDir))).toBe(true);
+      // Configuration recipes intentionally contain the explicitly selected root.
+      // Compare parsed arguments, not serialized JSON (Windows escapes slashes).
+      const recipe = JSON.parse(partial.agents.find(agent => agent.id === 'claude-code')!.config.content);
+      expect(recipe.mcpServers.shadow_brain.args).toContain(projectDir);
     } finally {
       skillError.mockImplementation(realLstat);
     }
