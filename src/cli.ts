@@ -17,8 +17,9 @@ import { registerContextCommands } from './context-cli.js';
 import { registerCurationCommands } from './curation-cli.js';
 import { registerIntegrationCommands } from './integration-cli.js';
 import { registerActivityCommands } from './activity-cli.js';
+import { registerProjectCommands } from './project-cli.js';
 
-const VERSION = '7.1.3';
+const VERSION = '7.1.4';
 
 // Defer config reads until a command actually needs provider settings.
 let savedConfig: Conf | undefined;
@@ -5239,10 +5240,27 @@ const recallExplainCmd = new Command('recall-explain')
 program.addCommand(storageHealthCmd);
 program.addCommand(recallExplainCmd);
 registerWorkflowCommands(program);
+demoCmd.enablePositionalOptions().command('workspace').description('Open an isolated synthetic workspace tour without providers or your saved memory')
+  .option('--port <number>', 'Loopback port, 0 selects an available port', '0')
+  .option('--no-activity', 'Keep the initial recorded snapshot without generating further synthetic calls')
+  .action(async opts => {
+    const { startDemoWorkspace } = await import('./dashboard/demo-workspace.js');
+    // Commander may consume this shared flag on the legacy parent command.
+    const port = demoCmd.getOptionValueSource('port') === 'cli' ? demoCmd.opts().port : opts.port;
+    const demo = await startDemoWorkspace({ port: Number(port), activity: opts.activity });
+    console.log('Agent Shadow Brain ' + VERSION + ' · SYNTHETIC DEMO');
+    console.log('Workspace: ' + demo.url + '/workspace');
+    console.log('Live view: ' + demo.url + '/live');
+    console.log('Scripted local MCP calls, not connected coding-agent work. Press Ctrl+C to stop and remove this temporary demo.');
+    const stop = () => { void demo.close().then(() => process.exit(0), () => { console.error('Demo stopped; temporary cleanup failed.'); process.exit(1); }); };
+    process.once('SIGINT', stop); process.once('SIGTERM', stop);
+  });
+
 registerContextCommands(program);
 registerCurationCommands(program);
 registerIntegrationCommands(program);
 registerActivityCommands(program);
+registerProjectCommands(program);
 program.parseAsync().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : 'Command failed.');
   process.exitCode = 1;

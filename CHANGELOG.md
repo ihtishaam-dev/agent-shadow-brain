@@ -1,5 +1,18 @@
 # Changelog
 
+## [7.1.4] - 2026-11-12 - Project knowledge, explained context, and outcome learning
+
+- Added a provider-free project portal with persistent local knowledge, bounded project inspection, and task-specific skill previews. Generated skills remain inside the selected project and preserve edited or unowned files.
+- Added a revisioned project feedback store and local learning controls. User and agent reports remain distinguishable; small task-relevant adjustments affect existing adaptive matches only and can be removed or disabled.
+- Added optional adaptive retrieval with technical identifier/path matching, query-centered excerpts, duplicate grouping before the candidate cap, and bounded recorded-link expansion. Legacy remains the SDK/CLI/MCP default.
+- Added Context Lab pipeline and candidate explanations, profile comparison, source/review attention queues, directional graph inspection, and live journal replay with transport filters and reduced motion.
+- Added memory inspection/health tools, MCP resources and prompt templates, native client recipes, and five additional project-local tools. Local MCP launches enforce project scope across reads, prompts, resources and activity.
+- Fixed automatic briefing invalidation after external writes and staged local changes, scoped inventory selection before its cap, and the isolated demo's explicit port parsing.
+- Added an isolated synthetic demo, ten core workspace screenshots plus Project Kit and learning views, a GIF/MP4 walkthrough, a component catalog, and source-backed research/comparison documentation.
+- Added paired retrieval diagnostics, local persistence/feedback/scope regressions and fresh-package checks. Diagnostic results describe author-generated cases, not superiority over competing tools or model answer quality.
+
+Install `@7.1.4` explicitly when upgrading from the earlier publication named 7.2.0. Existing global memory workflows and advanced modules remain available; Project Kit does not migrate or merge them.
+
 ## [7.1.3] - 2026-11-11 - Live activity and curated memory
 
 This release follows 7.2.0 using the version number requested by the maintainer. Install `@7.1.3` explicitly when upgrading from 7.2.0.

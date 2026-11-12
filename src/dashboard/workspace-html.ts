@@ -1,4 +1,6 @@
 // Dependency-free local workspace. The advanced dashboard is served separately.
+import { PROJECT_KIT_MARKUP, PROJECT_KIT_SCRIPT, PROJECT_KIT_STYLE } from './project-kit-html.js';
+
 export const WORKSPACE_HTML = String.raw`<!doctype html>
 <html lang="en" data-theme="light" data-motion="system">
 <head>
@@ -300,8 +302,105 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
   .save-status { padding: 8px 19px; min-height: 35px; border-top: 1px solid var(--line); }
   .save-status[data-error="true"] { color: var(--bad); }
   .notice { margin: 0 0 16px; }
-  .entered { animation: enter var(--ease) both; }
-  @keyframes enter { from { opacity: .7; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+  :root { --signal: #8fe5d3; --instrument: #142d3b; --instrument-deep: #102333; --instrument-ink: #f3f9fd; --instrument-muted: #b6cbd5; --instrument-line: #395663; }
+  .rail { gap: 35px; }
+  .nav-link[aria-current="page"] { box-shadow: inset 0 0 0 1px #426371; }
+  .rail-live { margin-top: 11px; }
+  .rail-live .icon { color: var(--rail-highlight); }
+  .page-head h1 { font-size: 2.27rem; }
+  .page-head .head-actions { align-items: end; }
+  .page-head .head-actions .button { align-self: end; }
+  .demo-notice { display: none; }
+  html[data-demo="true"] .demo-notice { display: flex; gap: 7px 10px; flex-wrap: wrap; padding: 8px 12px; margin-bottom: 16px; background: var(--amber-bg); color: var(--amber); border-radius: 7px; font-size: .83rem; }
+  html[data-demo="true"] .advanced-link { display: none; }
+  .overview-summary { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); color: var(--instrument-ink); background: var(--instrument); border-radius: 12px; overflow: hidden; margin-bottom: 17px; }
+  .overview-summary .summary { grid-template-columns: repeat(3,minmax(0,1fr)); background: var(--instrument-deep); color: var(--instrument-ink); border: 0; border-radius: 0; margin: 0; }
+  .overview-summary .summary-item { flex-direction: column; align-items: start; justify-content: center; gap: 11px; padding: 20px 16px; }
+  .overview-summary .summary-item + .summary-item { border-color: var(--instrument-line); }
+  .overview-summary .summary dt { color: var(--instrument-muted); font-size: .83rem; }
+  .overview-summary .summary dd { font-size: 1.72rem; }
+  .overview-summary .tile-icon { color: var(--signal); background: #234550; }
+  .overview-lead { display: flex; align-items: center; gap: 19px; padding: 21px; min-width: 0; }
+  .overview-lead h2 { font-size: 1.28rem; }
+  .overview-lead p { color: var(--instrument-muted); margin-top: 5px; }
+  .overview-lead .button { color: var(--signal); border-color: var(--instrument-line); margin-top: 12px; }
+  .overview-lead .button:hover { background: #254350; }
+  .coverage-ring { flex: none; display: grid; place-items: center; width: 98px; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(var(--signal) var(--coverage), #3b5665 0); }
+  .coverage-ring span { display: grid; place-items: center; width: 80px; aspect-ratio: 1; border-radius: 50%; background: var(--instrument); font-size: 1.46rem; font-weight: 720; font-variant-numeric: tabular-nums; }
+  .overview-columns { grid-template-columns: minmax(0,1.33fr) minmax(0,1fr); }
+  .overview-activity .panel-head { background: var(--inset); }
+  .attention-list { max-height: 355px; overflow: auto; }
+  .attention-row { display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 11px; align-items: start; padding: 12px 19px; }
+  .attention-row .tile-icon { width: 30px; height: 30px; background: var(--amber-bg); color: var(--amber); }
+  .attention-row .tags { margin-top: 5px; }
+  .graph-stage {
+    --canvas: #142534; --surface: #203546; --ink: #f0f7fc; --muted: #bed0db; --line: #4b6679;
+    --project: #a3e8d5; --project-bg: #234651; --agent: #d3c5ff; --agent-bg: #3a3e5e; --memory: #c2daf2; --memory-bg: #344d64;
+    --graph-line: #8ba9bd; --graph-project: #82b8ab; --graph-agent: #aa9ed0; --graph-dot: #40566a; --teal: #9ce9d8; --bad: #ff9eab;
+    height: 520px; color: var(--ink); color-scheme: dark;
+  }
+  .graph-stage .button:hover { background: #30485a; }
+  .graph-stage .cluster-area { fill-opacity: .47; stroke-opacity: .34; }
+  .graph-node { transition: opacity var(--ease); }
+  .graph-node.selected-memory .node-surface { stroke: var(--teal); }
+  .graph-stage .graph-edge.supports { stroke: var(--teal); }
+  .graph-inspector, .graph-list { max-height: 520px; }
+  .graph-body[data-lens="true"] .graph-stage { height: 390px; }
+  .graph-body[data-lens="true"] :is(.graph-inspector,.graph-list) { max-height: 390px; }
+  .graph-lens { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+  .legend-line.supports { border-color: var(--teal); }
+  .legend-line.contradicts { border-color: var(--bad); border-top-style: dashed; }
+  .legend-line.supersedes { border-color: var(--teal); border-top-style: dotted; }
+  .context-layout { grid-template-columns: minmax(255px,.68fr) minmax(0,1.75fr); }
+  .context-config { gap: 16px; }
+  .context-config .form-actions .primary { width: 100%; }
+  .context-settings-pair { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
+  .context-result-head { background: var(--inset); }
+  .context-output-head { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: start; gap: 10px; }
+  .context-output-head .form-actions { justify-content: end; }
+  .context-metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); border-block: 1px solid var(--line); }
+  .context-metrics > div { padding: 11px 10px; min-width: 0; }
+  .context-metrics > div + div { border-left: 1px solid var(--line); }
+  .context-metrics dt { font-size: .78rem; color: var(--muted); }
+  .context-metrics dd { font-size: 1.21rem; font-weight: 710; overflow-wrap: anywhere; }
+  .context-budget-track { height: 6px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 5px; }
+  .context-budget-track span { display: block; height: 100%; background: var(--teal-fill); border-radius: inherit; }
+  .context-section { display: grid; gap: 11px; min-width: 0; }
+  .context-section > summary, .candidate > summary { cursor: pointer; font-weight: 680; }
+  .context-section > summary { color: var(--teal); }
+  .context-section[open] > summary { margin-bottom: 10px; }
+  .retrieval-flow { display: grid; grid-template-columns: repeat(auto-fit,minmax(97px,1fr)); gap: 1px; list-style: none; padding: 1px; border-radius: 8px; background: var(--instrument-line); overflow: hidden; }
+  .retrieval-flow li { display: grid; grid-template-rows: auto 1fr auto; gap: 5px; min-width: 0; background: var(--instrument-deep); color: var(--instrument-ink); padding: 10px; }
+  .retrieval-flow strong { font-size: 1.28rem; font-variant-numeric: tabular-nums; }
+  .retrieval-flow span { font-size: .78rem; color: var(--instrument-muted); overflow-wrap: anywhere; }
+  .retrieval-flow li:last-child { background: var(--instrument); }
+  .retrieval-flow li:last-child strong { color: var(--signal); }
+  .retrieval-stage-bar { height: 3px; background: var(--instrument-line); border-radius: 2px; overflow: hidden; }
+  .retrieval-stage-bar i { display: block; height: 100%; background: var(--signal); opacity: .74; }
+  .candidate-list { max-height: 415px; overflow: auto; border-block: 1px solid var(--line); }
+  .candidate { padding: 9px 9px 9px 12px; }
+  .candidate > summary { color: var(--ink); }
+  .candidate > summary:hover { color: var(--teal); }
+  .candidate-title { display: inline-grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: baseline; gap: 7px; width: calc(100% - 20px); vertical-align: top; }
+  .candidate-title .rank { color: var(--muted); font: .8rem Consolas,monospace; }
+  .candidate-body { display: grid; gap: 7px; padding: 9px 0 4px; }
+  .candidate-signals { display: grid; grid-template-columns: repeat(auto-fit,minmax(110px,1fr)); gap: 5px; }
+  .candidate-signals div { background: var(--inset); border-radius: 5px; padding: 6px; }
+  .candidate-signals dt { color: var(--muted); font-size: .75rem; }
+  .candidate-signals dd { font-size: .89rem; font-variant-numeric: tabular-nums; }
+  .context-compare { display: grid; gap: 8px; }
+  .compare-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .compare-grid > div { padding: 10px; min-width: 0; }
+  .compare-grid > div + div { border-left: 1px solid var(--line); }
+  .compare-grid ul { padding-left: 16px; }
+  .compare-grid h3 { margin-bottom: 5px; }
+  .integration-meta { display: flex; flex-wrap: wrap; gap: 7px; padding: 12px 19px; border-bottom: 1px solid var(--line); }
+  .integration-config { display: grid; gap: 8px; }
+  .integration-config > summary { cursor: pointer; color: var(--teal); font-weight: 650; }
+  .integration-config[open] > summary { margin-bottom: 8px; }
+  .integration-config .context-preview { margin-block: 7px; max-height: 280px; }
+  .setting .settings-description { display: flex; align-items: start; gap: 11px; }
+  .setting .tile-icon { width: 32px; height: 32px; }
   html[data-motion="reduce"] *, html[data-motion="reduce"] *::before, html[data-motion="reduce"] *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
@@ -328,6 +427,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
     :root { --header: 48px; font-size: 14px; }
     .shell { display: block; }
     .rail { z-index: var(--sticky); height: auto; flex-direction: row; align-items: center; gap: 7px; padding: 5px 10px; }
+    .rail-live { display: none; }
     .rail-nav { display: flex; gap: 3px; }
     .nav-link { padding: 7px 9px; min-height: 35px; }
     .rail-foot { margin: 0 0 0 auto; padding: 0; border: 0; }
@@ -335,7 +435,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
     .top { padding: 7px 13px; }
     .top-actions { gap: 8px; }
     .content { padding: 22px 12px 32px; }
-    h1 { font-size: 1.68rem; }
+    h1, .page-head h1 { font-size: 1.68rem; }
     .page-head { gap: 8px; margin-bottom: 17px; flex-wrap: wrap; }
     .summary { margin-bottom: 13px; }
     .summary-item { gap: 6px; padding: 11px 9px; }
@@ -349,20 +449,36 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
     .check-row .tag { grid-column: 2; grid-row: 1; }
     .graph-body { grid-template-columns: minmax(0,1fr); }
     .graph-stage, .graph-list { height: 365px; }
+    .graph-body[data-lens="true"] .graph-stage { height: 310px; }
     .graph-inspector { border-left: 0; border-top: 1px solid var(--line); max-height: 340px; }
     .panel-head, .panel-body, .memory-row, .setting { padding-left: 12px; padding-right: 12px; }
     .project-row, .event { padding-left: 12px; padding-right: 12px; }
     .list-footer { flex-wrap: wrap; }
     .graph-mode { margin-left: 0; }
+    .overview-summary { grid-template-columns: minmax(0,1fr); }
+    .overview-summary .summary-item { padding: 11px 10px; }
+    .overview-summary .summary dd { font-size: 1.42rem; }
+    .overview-lead { padding: 15px; gap: 12px; }
+    .coverage-ring { width: 77px; }
+    .coverage-ring span { width: 63px; font-size: 1.16rem; }
+    .context-output-head { grid-template-columns: minmax(0,1fr); }
+    .context-output-head .form-actions { justify-content: start; }
+    #context-result, #attention-heading { scroll-margin-top: 55px; }
+    .context-metrics > div { padding: 8px 6px; }
+    .context-metrics dd { font-size: 1rem; }
+    .retrieval-flow { grid-template-columns: repeat(3,minmax(0,1fr)); }
+    .candidate-title { grid-template-columns: auto minmax(0,1fr); }
+    .candidate-title .tag { grid-column: 2; justify-self: start; }
   }
   @media (max-width: 355px) {
     .rail { gap: 3px; }
-    .nav-link { padding-left: 7px; padding-right: 7px; }
+    .nav-link { padding-left: 5px; padding-right: 5px; }
     .crumb > .muted, .crumb .icon { display: none; }
     .filters { grid-template-columns: repeat(2,minmax(0,1fr)); }
     .filters .search-field { grid-column: 1 / -1; }
     .filters .button { grid-row: auto; grid-column: auto; }
   }
+${PROJECT_KIT_STYLE}
 </style>
 </head>
 <body>
@@ -376,12 +492,14 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
       <a class="nav-link" href="#overview" aria-label="Overview" title="Overview" data-view="overview" aria-current="page"><span data-icon="overview"></span><span class="nav-label">Overview</span></a>
       <a class="nav-link" href="#memories" aria-label="Memories" title="Memories" data-view="memories"><span data-icon="memory"></span><span class="nav-label">Memories</span></a>
       <a class="nav-link" href="#graph" aria-label="Graph" title="Graph" data-view="graph"><span data-icon="graph"></span><span class="nav-label">Graph</span></a>
-      <a class="nav-link" href="#context" aria-label="Context" title="Context" data-view="context"><span data-icon="context"></span><span class="nav-label">Context</span></a>
+      <a class="nav-link" href="#context" aria-label="Context Lab" title="Context Lab" data-view="context"><span data-icon="context"></span><span class="nav-label">Context Lab</span></a>
+      <a class="nav-link" href="#project-kit" aria-label="Project Kit" title="Project Kit" data-view="project-kit"><span data-icon="project"></span><span class="nav-label">Project Kit</span></a>
       <a class="nav-link" href="#integrations" aria-label="Integrations and health" title="Integrations and health" data-view="integrations"><span data-icon="integrations"></span><span class="nav-label">Integrations</span></a>
       <a class="nav-link" href="#features" aria-label="Features" title="Features" data-view="features"><span data-icon="settings"></span><span class="nav-label">Features</span></a>
+      <a class="nav-link rail-live" href="/live" aria-label="Live operations" title="Live operations"><span data-icon="activity"></span><span class="nav-label">Live operations</span></a>
     </nav>
     <div class="rail-foot">
-      <a class="nav-link" href="/advanced" aria-label="Advanced dashboard" title="Advanced dashboard"><span data-icon="advanced"></span><span class="nav-label">Advanced tools</span><span class="arrow" data-icon="diagonal"></span></a>
+      <a class="nav-link advanced-link" href="/advanced" aria-label="Advanced dashboard" title="Advanced dashboard"><span data-icon="advanced"></span><span class="nav-label">Advanced tools</span><span class="arrow" data-icon="diagonal"></span></a>
       <p class="rail-build" id="rail-version">Local workspace</p>
     </div>
   </aside>
@@ -395,11 +513,14 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
       </div>
     </header>
     <main id="main-content" class="content" tabindex="-1">
+      <div class="demo-notice"><strong>Synthetic demo</strong><span>Scripted local MCP calls use sample data. Changes affect this temporary demo only.</span></div>
+      <div class="project-local-notice"><strong>Project workspace</strong><span>Memory and settings are stored with this project.</span><a href="#project-kit">Open Project Kit</a></div>
       <div class="notice" id="workspace-notice" role="status" hidden></div>
       <section id="page-overview" aria-labelledby="title-overview">
         <div class="page-head">
-          <div><h1 id="title-overview" tabindex="-1">Overview</h1><p class="muted">See what your agents remember and what they’ve done recently.</p></div>
-          <a href="#context" class="button primary"><span data-icon="context"></span>Assemble context</a>
+          <div><h1 id="title-overview" tabindex="-1">Memory workspace</h1><p class="muted">Review saved knowledge and prepare a brief for your next task.</p></div>
+          <div class="form-actions head-actions"><label class="label" for="overview-quality-project">Project<select id="overview-quality-project"><option value="">All projects</option></select></label>
+          <a href="#context" id="overview-context" class="button primary"><span data-icon="context"></span>Open Context Lab</a></div>
         </div>
         <div id="overview-body" aria-busy="true"></div>
       </section>
@@ -423,6 +544,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
           <div class="form-actions" id="detail-actions" hidden>
             <a id="detail-graph" class="button" href="#graph"><span data-icon="graph"></span>View on graph</a>
             <a id="detail-context" class="button" href="#context"><span data-icon="context"></span>Assemble context</a>
+            <a id="detail-outcome" class="button" href="#project-kit" hidden><span data-icon="activity"></span>Record outcome</a>
           </div>
         </div>
         <div id="detail-body" aria-busy="true"></div>
@@ -442,6 +564,7 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
           </div>
           <div class="panel" id="graph-panel" aria-busy="true">
             <div class="panel-head"><h2>Memory relationships</h2><span id="graph-count" class="muted small" role="status"></span></div>
+            <div id="graph-lens" class="graph-lens" hidden><p class="small muted" id="graph-lens-label"></p><button class="button" type="button" id="graph-lens-clear">Show full graph</button></div>
             <div id="graph-status"></div>
             <div class="graph-body" id="graph-body" hidden>
               <div class="graph-stage" id="graph-stage">
@@ -459,28 +582,35 @@ export const WORKSPACE_HTML = String.raw`<!doctype html>
             <div id="graph-legend" class="legend" hidden>
               <span><i class="legend-glyph project"></i> Project</span><span><i class="legend-glyph agent"></i> Agent</span><span><i class="legend-glyph memory"></i> Memory</span>
               <span><i class="legend-line project-edge"></i> Belongs to project</span><span><i class="legend-line agent-edge"></i> Recorded by agent</span>
-              <span><i class="legend-line recorded-edge"></i> Recorded memory link</span>
+              <span><i class="legend-line recorded-edge"></i> Related</span><span><i class="legend-line supports"></i> Supports</span>
+              <span><i class="legend-line contradicts"></i> Contradicts</span><span><i class="legend-line supersedes"></i> Supersedes</span>
             </div>
           </div>
         </div>
       </section>
       <section id="page-context" aria-labelledby="title-context" hidden>
-        <div class="page-head"><div><h1 id="title-context" tabindex="-1">Context</h1><p class="muted">Build a project brief for a specific task and review what it includes.</p></div></div>
+        <div class="page-head"><div><h1 id="title-context" tabindex="-1">Context Lab</h1><p class="muted">Assemble a task brief, inspect its evidence, and compare retrieval profiles.</p></div></div>
         <div class="split context-layout">
           <div class="panel">
-            <div class="panel-head"><h2>Task details</h2></div>
+            <div class="panel-head"><h2>Build a brief</h2></div>
             <form class="panel-body context-config" id="context-form">
               <label class="label" for="context-project">Project<select id="context-project" required><option value="">Select a project</option></select></label>
               <label class="label" for="context-task">Task<textarea id="context-task" rows="5" maxlength="4096" required placeholder="Describe what the agent will work on."></textarea></label>
-              <label class="label" for="context-budget">Estimated token budget<input id="context-budget" type="number" inputmode="numeric" min="0" max="12000" step="1" value="2000" required></label>
+              <div class="context-settings-pair">
+                <label class="label" for="context-budget">Token budget<input id="context-budget" type="number" inputmode="numeric" min="0" max="12000" step="1" value="2000" required aria-describedby="context-estimate"></label>
+                <label class="label" for="context-profile">Retrieval<select id="context-profile"><option value="adaptive">Adaptive</option><option value="legacy">Legacy</option></select></label>
+              </div>
+              <p class="small muted" id="context-estimate">Token usage is estimated for the assembled brief.</p>
+              <label class="inline-check small" id="context-related-row"><input type="checkbox" id="context-related" checked>Expand through recorded supporting and related links</label>
               <label class="inline-check small" id="context-cross-row" hidden><input type="checkbox" id="context-cross">Include eligible memories from other projects</label>
               <div id="context-gate"></div>
               <div class="form-actions"><button class="button primary" id="context-submit" type="submit" disabled><span data-icon="context"></span>Assemble context</button></div>
             </form>
           </div>
-          <div class="panel" id="context-result"><div class="panel-head"><h2>Context preview</h2></div><div id="context-output"></div></div>
+          <div class="panel" id="context-result"><div class="panel-head context-result-head"><h2>Brief and evidence</h2><span class="small muted" id="context-result-state" role="status">Ready for a task</span></div><div id="context-output"></div></div>
         </div>
       </section>
+${PROJECT_KIT_MARKUP}
       <section id="page-integrations" aria-labelledby="title-integrations" hidden>
         <div class="page-head">
           <div><h1 id="title-integrations" tabindex="-1">Integrations &amp; health</h1><p class="muted">Check local storage and see which capabilities each agent supports.</p></div>
@@ -534,7 +664,7 @@ const glyphs = {
   warning: '<path d="m12 3 10 17H2L12 3zm0 6v4m0 3h.01"/>',
   refresh: '<path d="M19.5 9a8 8 0 1 0 .3 5.5M20 4v5h-5"/>'
 };
-const viewNames = { overview: 'Overview', memories: 'Memories', memory: 'Memory detail', graph: 'Graph', context: 'Context', integrations: 'Integrations', features: 'Features' };
+const viewNames = { overview: 'Overview', memories: 'Memories', memory: 'Memory detail', graph: 'Graph', context: 'Context Lab', 'project-kit': 'Project Kit', integrations: 'Integrations', features: 'Features' };
 const reviewStates = { active: 'Active', contested: 'Needs review', archived: 'Archived', superseded: 'Superseded' };
 const linkTypes = { related: 'Related', supports: 'Supports', contradicts: 'Contradicts', supersedes: 'Supersedes' };
 const definitions = [
@@ -560,10 +690,11 @@ const TIME = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric'
 const state = {
   view: '', route: '', projects: [], overviewLoaded: false, overviewPending: null, overviewScope: '', overviewRequest: 0, overviewRequestScope: '',
   activity: [], activityEnabled: null, activityPending: false, features: null, featurePending: null, featureSaving: false,
+  health: { snapshot: null, project: '', filter: '', request: 0 }, projectKit: null,
   memory: { query: null, request: 0, controller: null, limit: 20, offset: 0 },
   detail: { snapshot: null, id: '', project: '', back: '#memories', request: 0, targetRequest: 0, saving: false },
-  graph: { snapshot: null, project: null, mode: matchMedia('(max-width: 690px)').matches ? 'list' : 'map', selected: '', selectedEdge: '', focusMemory: '', nodes: [], edges: [], layout: null, zoom: 1, panX: 0, panY: 0, request: 0, controller: null, drag: null },
-  context: { pack: null, pending: false, dirty: false, routeProject: '' },
+  graph: { snapshot: null, project: null, mode: matchMedia('(max-width: 690px)').matches ? 'list' : 'map', selected: '', selectedEdge: '', focusMemory: '', lens: '', nodes: [], edges: [], layout: null, zoom: 1, panX: 0, panY: 0, request: 0, controller: null, drag: null },
+  context: { pack: null, params: null, comparison: null, comparing: false, pending: false, dirty: false, routeProject: '' },
   integrations: { snapshot: null, pending: false }
 };
 
@@ -664,9 +795,22 @@ function reviewTag(value) {
 
 function renderSummary(totals) {
   return '<dl class="summary">' + [
-    ['memory', 'Stored memories', totals.memories], ['project', 'Projects', totals.projects], ['agent', 'Contributing agents', totals.agents]
+    ['memory', 'Total stored memories', totals.memories], ['project', 'Projects', totals.projects], ['agent', 'Contributing agents', totals.agents]
   ].map(([image, label, value]) => '<div class="summary-item"><span class="tile-icon">' + icon(image) +
     '</span><div><dt>' + label + '</dt><dd>' + number(value) + '</dd></div></div>').join('') + '</dl>';
+}
+
+function renderOverviewSummary(data) {
+  const counts = data.quality || {};
+  const total = Number(counts.total) || 0;
+  const sources = Number(counts.sourceBacked) || 0;
+  const percent = total ? Math.round(Math.min(1, sources / total) * 100) : 0;
+  const project = data.scope?.projectId;
+  const scope = project ? state.projects.find((item) => item.id === project)?.name || project : 'All projects';
+  return '<div class="overview-summary"><div class="overview-lead"><div class="coverage-ring" aria-hidden="true" style="--coverage:' + percent + '%"><span>' +
+    (total ? percent + '%' : '—') + '</span></div><div><h2>Recorded source coverage</h2><p class="small">' +
+    esc(scope) + ' · ' + number(sources) + ' of ' + number(total) + (data.truncated ? ' sampled memories' : ' memories') +
+    '</p><button class="button quiet" type="button" id="attention-jump">Review attention queue ' + icon('chevron', true) + '</button></div></div>' + renderSummary(data.totals || {}) + '</div>';
 }
 
 function renderProjects(projects) {
@@ -698,8 +842,6 @@ function renderQuality(data) {
   const project = data.scope?.projectId || '';
   const scope = data.truncated ? 'Based on the latest ' + number(data.inventoryLimit) + ' stored memories.' :
     project ? 'Stored memories in this project.' : 'Stored memories across projects.';
-  const options = state.projects.map((item) => '<option value="' + esc(item.id) + '"' +
-    (item.id === project ? ' selected' : '') + '>' + esc(item.name || item.id) + '</option>').join('');
   const statusCounts = Object.entries(reviewStates).map(([key, label]) => ({ key, label, count: Number(quality[key]) || 0 }));
   const coverage = quality.total ? Math.max(0, Math.min(100, Number(quality.sourceBacked || 0) / quality.total * 100)) : 0;
   const statusBars = statusCounts.map(({ key, count }) =>
@@ -707,14 +849,68 @@ function renderQuality(data) {
   const statusLinks = statusCounts.map(({ key, label, count }) => '<a href="' + esc(routeLink('memories', { project, state: key })) +
     '"><i aria-hidden="true" class="quality-' + key + '"></i>' + esc(label) + ' <strong>' + number(count) + '</strong></a>').join('');
   return '<div class="panel"><div class="panel-head"><div><h2>Review and sources</h2><p class="small muted">' + esc(scope) +
-    '</p></div><label class="label" for="overview-quality-project">Project<select id="overview-quality-project"><option value="">All projects</option>' +
-    options + '</select></label></div>' + (quality.total ? '<div class="panel-body stack"><div class="stack" style="gap:8px"><h3>Memory status</h3>' +
+    '</p></div></div>' + (quality.total ? '<div class="panel-body stack"><div class="stack" style="gap:8px"><h3>Memory status</h3>' +
     '<div class="quality-track" aria-hidden="true">' + statusBars + '</div><div class="quality-labels">' + statusLinks + '</div></div>' +
     '<div class="stack" style="gap:8px"><div class="quality-source"><h3>Recorded sources</h3><span class="small muted">' +
     number(quality.sourceBacked) + ' of ' + number(quality.total) + ' memories</span></div>' +
     '<div class="quality-track" aria-hidden="true"><span class="quality-active" style="width:' + coverage + '%"></span></div></div>' +
     (Number.isFinite(quality.reviewed) ? '<p class="small muted">' + number(quality.reviewed) + ' with a recorded review</p>' : '') +
     '</div>' : blank('memory', 'No memories in scope', 'Save a memory to see review and source counts here.')) + '</div>';
+}
+
+const healthIssues = {
+  contested: 'Needs review', contradiction: 'Contradictory link', 'orphaned-link': 'Missing linked memory',
+  duplicate: 'Repeated content', 'no-source': 'No recorded source', 'older-memory': 'Older than 90 days'
+};
+
+function renderAttention() {
+  const target = $('attention-results');
+  const store = state.health;
+  if (!target || !store.snapshot || store.project !== state.overviewScope) return;
+  const data = store.snapshot;
+  const counts = data.counts || {};
+  const rows = list(data.queue).filter((item) => !store.filter || list(item.issues).some((issue) => issue.kind === store.filter));
+  const options = Object.entries(healthIssues).map(([value, label]) => '<option value="' + value + '">' + label + '</option>').join('');
+  const controls = $('attention-filter');
+  if (!controls.childElementCount) controls.innerHTML = '<option value="">All issues</option>' + options;
+  controls.value = store.filter;
+  controls.disabled = !list(data.queue).length;
+  const scopeNote = (data.coverage?.truncated ? 'Checked the latest ' + number(data.coverage.limit) + ' memories in scope.' : 'Checked ' + number(counts.total) + ' memories in scope.');
+  $('attention-scope').textContent = scopeNote;
+  const warnings = list(data.warnings).map((warning) => '<p class="small muted panel-body">' + esc(warning) + '</p>').join('');
+  const count = '<p class="small muted panel-body">Showing ' + number(rows.length) + ' of ' + number(data.queueTotal) + ' flagged memories' +
+    (store.filter ? ' · filter applied to loaded items' : '') + '.</p>';
+  const items = rows.map((item) => '<li class="attention-row"><span class="tile-icon">' + icon('warning', true) + '</span><div>' +
+    memoryLink(item.id, item.projectId, item.title || item.id) + '<div class="tags">' +
+    tags([['project', state.projects.find((project) => project.id === item.projectId)?.name || item.projectId], ['memory', nice(item.category)]]) +
+    list(item.issues).map((issue) => '<span class="tag check-' + (issue.severity === 'review' ? 'warn' : '') + '">' +
+      esc(issue.label || healthIssues[issue.kind] || 'Review') + '</span>').join('') + '</div></div></li>').join('');
+  target.innerHTML = rows.length ? count + '<ul class="list attention-list" tabindex="0" aria-label="Flagged memories">' + items + '</ul>' + warnings :
+    blank('memory', store.filter ? 'No loaded items match' : 'No attention items', store.filter ? 'Choose another issue or show all loaded items.' : 'Review flags will appear here as the memory store changes.') + warnings;
+}
+
+async function loadHealth(project) {
+  const target = $('attention-results');
+  if (!target) return;
+  const store = state.health;
+  const request = ++store.request;
+  if (store.project !== project) store.filter = '';
+  store.project = project;
+  store.snapshot = null;
+  $('attention-filter').disabled = true;
+  $('attention-scope').textContent = '';
+  target.innerHTML = skeleton('Checking memory health…');
+  setBusy(target, true);
+  try {
+    const snapshot = await api(queryPath('memory-health', { project, limit: 30 }));
+    if (request !== store.request || target !== $('attention-results')) return;
+    store.snapshot = snapshot;
+    renderAttention();
+  } catch (error) {
+    if (request === store.request && target === $('attention-results')) target.innerHTML = errorMarkup(error.message, 'health');
+  } finally {
+    if (request === store.request && target === $('attention-results')) setBusy(target, false);
+  }
 }
 
 function renderActivity() {
@@ -745,12 +941,18 @@ function renderOverview(data) {
     number(data.inventoryLimit) + ' stored memories.</p>' : '';
   const pending = data.storageHealth?.status === 'pending' ? '<p class="status small muted notice">The memory store has pending writes.</p>' : '';
   const projectNote = state.projects.length > 8 ? 'Top projects by saved memory count' : 'Saved memories by project';
-  $('overview-body').innerHTML = '<div id="overview-refresh"></div>' + pending + sample + renderSummary(data.totals || {}) +
-    '<div class="split overview-columns"><div class="stack">' + renderQuality(data) + '<div class="panel"><div class="panel-head"><div><h2>Project inventory</h2>' +
+  optionSet('overview-quality-project', 'All projects', state.projects, data.scope?.projectId || '');
+  $('overview-context').href = routeLink('context', { project: data.scope?.projectId });
+  $('overview-body').innerHTML = '<div id="overview-refresh"></div>' + pending + renderOverviewSummary(data) + sample +
+    '<div class="split overview-columns"><div class="stack"><section class="panel" aria-labelledby="attention-heading"><div class="panel-head"><div>' +
+    '<h2 id="attention-heading" tabindex="-1">Attention queue</h2><p class="small muted" id="attention-scope"></p></div>' +
+    '<label class="label" for="attention-filter">Issue<select id="attention-filter" disabled></select></label></div>' +
+    '<div id="attention-results"></div></section>' + renderQuality(data) + '<div class="panel"><div class="panel-head"><div><h2>Project inventory</h2>' +
     '<p class="muted small">' + projectNote + '</p></div><a class="button quiet" href="#memories">Browse ' + icon('chevron', true) +
     '</a></div>' + renderProjects(state.projects) + '</div>' + renderOverviewMemories(list(data.recentMemories)) +
-    '</div><div class="panel"><div class="panel-head"><h2>Recent activity</h2><span id="activity-status" class="small muted"></span></div><div id="activity-body"></div></div></div>';
+    '</div><div class="panel overview-activity"><div class="panel-head"><div><h2>Recent activity</h2><span id="activity-status" class="small muted"></span></div><a class="button quiet" href="/live">Open live operations ' + icon('chevron', true) + '</a></div><div id="activity-body"></div></div></div>';
   renderActivity();
+  if (state.view === 'overview') void loadHealth(data.scope?.projectId || '');
 }
 
 function syncProjectOptions() {
@@ -768,6 +970,8 @@ async function loadOverview(force = false, project = '') {
   state.overviewRequestScope = project;
   const target = $('overview-body');
   if (!state.overviewLoaded) target.innerHTML = '<div class="panel">' + skeleton('Loading workspace…') + '</div>';
+  else if (state.overviewScope !== project && $('overview-refresh')) $('overview-refresh').innerHTML =
+    '<div class="notice status small muted" role="status">Loading the selected project. Showing the previous scope.</div>';
   setBusy(target, true);
   state.overviewPending = (async () => {
     try {
@@ -776,6 +980,7 @@ async function loadOverview(force = false, project = '') {
       state.overviewLoaded = true;
       state.overviewScope = project;
       state.projects = list(data.projects);
+      state.projectKit = data.projectKit ?? null;
       state.activity = list(data.activity);
       if (typeof data.features?.liveActivity === 'boolean') state.activityEnabled = data.features.liveActivity;
       if (data.version) $('rail-version').textContent = 'Version ' + data.version;
@@ -931,6 +1136,9 @@ function renderDetail(snapshot) {
   ]) + (memory.createdAt || memory.updatedAt ? '<div class="small muted">' + dateMarkup(memory.createdAt || memory.updatedAt, true) + '</div>' : '');
   $('detail-graph').href = routeLink('graph', { project, memory: memory.id });
   $('detail-context').href = routeLink('context', { project });
+  const projectFeedback = document.documentElement.dataset.projectLocal === 'true' || state.projectKit?.projectId === project;
+  $('detail-outcome').hidden = !projectFeedback;
+  $('detail-outcome').href = routeLink('project-kit', { memory: memory.id });
   $('detail-actions').hidden = false;
   const linkRows = list(links).map((link) => {
     const outgoing = link.fromId === memory.id;
@@ -1048,9 +1256,9 @@ async function saveDetail(kind, payload, focus) {
     await api(kind, { body: { projectId: project, expectedRevision: store.snapshot.revision, ...payload } });
     state.graph.snapshot = null;
     state.overviewLoaded = false;
-    if (state.context.pack) {
+    if (state.context.pack || state.context.pending) {
       state.context.dirty = true;
-      renderContext();
+      if (!state.context.pending) renderContext();
     }
     if (request !== store.request || state.view !== 'memory') return;
     if (await loadDetail(id, project, 'Saved. Could not reload the memory. ')) detailStatus(status, 'Saved.');
@@ -1317,6 +1525,10 @@ function centerGraphNode(id) {
   const position = graph.layout?.positions.get(id);
   if (!position || graph.mode !== 'map') return;
   const { width, height } = graphViewport();
+  const left = graph.panX + position.x * graph.zoom;
+  const top = graph.panY + position.y * graph.zoom;
+  if (graph.zoom >= .8 && left >= 14 && top >= 14 && left + position.width * graph.zoom <= width - 14 &&
+      top + position.height * graph.zoom <= height - 52) return;
   const zoom = Math.max(.8, graph.zoom);
   graph.zoom = zoom;
   graph.panX = width / 2 - (position.x + position.width / 2) * zoom;
@@ -1352,9 +1564,10 @@ function renderGraphInspector() {
     const from = all.get(selectedEdge.source);
     const to = all.get(selectedEdge.target);
     const record = (node) => node ? memoryLink(graphMemoryId(node), node.project, node.label || node.id) : '';
+    const endpoint = (label, node) => (selectedEdge.kind === 'related' ? '' : '<p class="small muted">' + label + '</p>') + '<p>' + record(node) + '</p>';
     inspector.innerHTML = '<div class="panel-head"><h3>Link details</h3></div><div class="panel-body">' +
-      '<p>' + record(from) + '</p><div class="tags"><span class="tag memory">' + esc(graphEdgeLabels[selectedEdge.kind]) + '</span></div>' +
-      '<p>' + record(to) + '</p>' + (selectedEdge.note ? '<p class="small muted detail-note">' + esc(selectedEdge.note) + '</p>' : '') + '</div>';
+      '<div>' + endpoint('From memory', from) + '</div>' + tags([['memory', graphEdgeLabels[selectedEdge.kind]], ['agent', 'Recorded memory link']]) +
+      '<div>' + endpoint('To memory', to) + '</div>' + (selectedEdge.note ? '<p class="small muted detail-note">' + esc(selectedEdge.note) + '</p>' : '') + '</div>';
     return;
   }
   if (!selected) {
@@ -1367,7 +1580,7 @@ function renderGraphInspector() {
     adjacent.map(({ id, edge }) => {
       const node = all.get(id);
       if (recordedEdge(edge)) return '<button type="button" class="button quiet" data-edge-record="' + esc(edge.id) +
-        '"><span>' + esc(graphEdgeLabels[edge.kind]) + ' · ' + esc(node.label || node.id) + '</span></button>';
+        '"><span>' + esc(linkCaption({ fromId: edge.source, type: edge.kind }, selected.id)) + ' · ' + esc(node.label || node.id) + '</span></button>';
       return '<button type="button" class="button quiet" data-related="' + esc(id) + '" title="' +
         esc(graphEdgeLabels[edge.kind] || nice(edge.kind) || 'Connection') + '">' + icon(node.kind, true) + '<span>' +
         esc(node.label || node.id) + '</span></button>';
@@ -1375,11 +1588,14 @@ function renderGraphInspector() {
   const project = state.projects.find((item) => item.id === selected.project)?.name || selected.project;
   const snippet = compact(selected.snippet) && compact(selected.snippet) !== compact(selected.label)
     ? '<p class="small">' + esc(selected.snippet) + '</p>' : '';
+  const canFocus = selected.kind === 'memory' && adjacent.some(({ edge }) => recordedEdge(edge)) && graph.lens !== selected.id;
   inspector.innerHTML = '<div class="panel-head"><h3>Node details</h3></div><div class="panel-body">' +
     tags([[selected.kind, graphKinds[selected.kind]], ['memory', nice(selected.category)], ['state-' + (selected.effectiveState || ''), reviewLabel(selected.effectiveState)]]) +
     '<h3>' + (selected.kind === 'memory' ? memoryLink(graphMemoryId(selected), selected.project, selected.label || selected.id) : esc(selected.label || selected.id)) + '</h3>' +
     (project && selected.kind !== 'project' ? '<p class="muted small">' + esc(project) + '</p>' : '') + snippet +
-    (selected.kind === 'memory' ? sourceMarkup([...list(selected.sources), selected.source]) : '') + connected + '</div>';
+    (selected.kind === 'memory' ? sourceMarkup([...list(selected.sources), selected.source]) : '') +
+    (canFocus ? '<button class="button" type="button" data-graph-lens="' + esc(selected.id) + '">' + icon('graph', true) + 'Focus recorded links</button>' : '') +
+    connected + '</div>';
 }
 
 function updateGraphSelection() {
@@ -1396,6 +1612,7 @@ function updateGraphSelection() {
     element.setAttribute('aria-pressed', String(id === nodeId));
     if (element instanceof SVGElement) {
       element.classList.toggle('unrelated', hasSelection && !connected.has(nodeId));
+      element.classList.toggle('selected-memory', id === nodeId && nodeId.startsWith('memory:'));
       element.setAttribute('tabindex', nodeId === tabStop ? '0' : '-1');
     }
   });
@@ -1446,14 +1663,22 @@ function renderGraph() {
   const search = $('graph-query').value.trim().toLowerCase();
   const kind = $('graph-kind').value;
   const relation = $('graph-relation').value;
-  const nodes = list(graph.snapshot.nodes).filter((node) => Object.hasOwn(graphKinds, node.kind));
+  const allNodes = list(graph.snapshot.nodes).filter((node) => Object.hasOwn(graphKinds, node.kind));
+  const allEdges = list(graph.snapshot.edges);
+  const anchor = allNodes.find((node) => node.id === graph.lens);
+  const edges = anchor ? allEdges.filter((edge) => recordedEdge(edge) && (edge.source === anchor.id || edge.target === anchor.id)) : allEdges;
+  const lensIds = anchor ? new Set([anchor.id, ...edges.flatMap((edge) => [edge.source, edge.target])]) : null;
+  const nodes = lensIds ? allNodes.filter((node) => lensIds.has(node.id)) : allNodes;
+  $('graph-lens').hidden = !anchor;
+  $('graph-body').dataset.lens = String(!!anchor);
+  $('graph-lens-label').textContent = anchor ? 'Recorded links for ' + shorten(compact(anchor.label || anchor.id), 94) : '';
   const matches = nodes.filter((node) => (!kind || node.kind === kind) &&
     (!search || [node.label, node.snippet, node.project, node.category].filter(Boolean).join(' ').toLowerCase().includes(search)));
   const ids = new Set(matches.map((node) => node.id));
   if (search && !kind) {
-    matches.forEach((node) => graphNeighbors(list(graph.snapshot.edges), node.id).forEach((item) => ids.add(item.id)));
+    matches.forEach((node) => graphNeighbors(edges, node.id).forEach((item) => ids.add(item.id)));
   }
-  const matchingEdges = list(graph.snapshot.edges).filter((edge) => ids.has(edge.source) && ids.has(edge.target) &&
+  const matchingEdges = edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target) &&
     (!relation || (relation === 'recorded' ? recordedEdge(edge) : edge.kind === relation)));
   if (relation) {
     const endpoints = new Set(matchingEdges.flatMap((edge) => [edge.source, edge.target]));
@@ -1467,8 +1692,8 @@ function renderGraph() {
   $('graph-count').textContent = matchingCount + countLabel(graph.nodes.length, 'node') + ' · ' + countLabel(graph.edges.length, 'connection');
   $('graph-body').hidden = !graph.nodes.length;
   $('graph-legend').hidden = !graph.nodes.length;
-  const note = graph.snapshot.truncated ? '<div class="panel-body small muted">Showing ' +
-    number(graph.snapshot.shownMemories) + ' memories in this snapshot. Filter by project to explore a narrower set.</div>' : '';
+  const note = graph.snapshot.truncated ? '<div class="panel-body small muted">This snapshot includes ' +
+    number(graph.snapshot.shownMemories) + ' memories. Filter by project to explore a narrower set.</div>' : '';
   const focused = graph.focusMemory && graph.nodes.find((node) => graphMemoryId(node) === graph.focusMemory);
   const missing = graph.focusMemory && !focused ? '<p class="panel-body small muted">This memory is outside the current graph view.</p>' : '';
   $('graph-status').innerHTML = graph.nodes.length ? note + missing : missing + blank('graph', search || kind || relation ? 'No matching nodes' : 'No relationships yet',
@@ -1498,6 +1723,7 @@ async function loadGraph(project, force = false, memory = '') {
   const controller = new AbortController();
   graph.controller = controller;
   graph.snapshot = null;
+  if (graph.project !== project || memory) graph.lens = '';
   graph.project = project;
   graph.selected = '';
   graph.selectedEdge = '';
@@ -1505,6 +1731,7 @@ async function loadGraph(project, force = false, memory = '') {
   $('graph-status').innerHTML = skeleton('Loading relationships…');
   $('graph-count').textContent = '';
   $('graph-body').hidden = true;
+  $('graph-lens').hidden = true;
   $('graph-legend').hidden = true;
   try {
     const snapshot = await api(queryPath('graph', { project, memory }), { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]) });
@@ -1525,6 +1752,7 @@ function renderContextControls() {
   $('context-cross-row').hidden = !canCross;
   if (!canCross) input.checked = false;
   $('context-submit').disabled = !toggle?.contextAssembly || !state.projects.length || state.context.pending;
+  $('context-related-row').hidden = $('context-profile').value !== 'adaptive';
   const gate = $('context-gate');
   if (!toggle && state.featurePending) {
     gate.innerHTML = '<p class="muted small" role="status">Checking feature settings…</p>';
@@ -1547,11 +1775,99 @@ function contextReasonList(items, format) {
   return '<ul class="list">' + items.map(format).join('') + '</ul>';
 }
 
+const contextReasons = {
+  selected: 'Included in the brief.', duplicate: 'Matches a memory already considered.', budget: 'Would exceed the selected budget.',
+  limit: 'Beyond the brief’s memory limit.', 'candidate-limit': 'Beyond the evaluated candidate limit.', empty: 'Contains no memory text.',
+  lookback: 'Falls outside the selected time range.', archived: 'Archived in a recorded review.', contested: 'Marked as needing review.',
+  superseded: 'Superseded by a recorded replacement.'
+};
+const rankScore = (value) => Number.isFinite(value) ? value.toLocaleString(undefined, { maximumFractionDigits: 3 }) : '—';
+
+function renderRetrieval(pack) {
+  const retrieval = pack.retrieval;
+  if (!retrieval || !pack.enabled) return '';
+  const counts = list(retrieval.stages);
+  const max = Math.max(1, ...counts.map((stage) => Number(stage.count) || 0));
+  const stages = counts.map((stage) => '<li><strong>' + number(stage.count) + '</strong><span>' + esc(stage.label) +
+    '</span><div class="retrieval-stage-bar" aria-hidden="true"><i style="width:' + Math.max(0, (Number(stage.count) || 0) / max * 100) + '%"></i></div></li>').join('');
+  const candidates = list(retrieval.candidates);
+  const labels = new Map([...list(pack.entries), ...candidates].map((item) => [item.id, item.title || shorten(compact(item.excerpt), 95) || item.id]));
+  const rows = candidates.map((candidate) => {
+    const signals = list(candidate.signals).map((signal) => {
+      const sign = signal.label === 'Project task feedback' && signal.value > 0 ? '+' : '';
+      return '<div><dt>' + esc(signal.label) + '</dt><dd>' + sign + esc(rankScore(signal.value)) + '</dd></div>';
+    }).join('');
+    const terms = list(candidate.matchedTerms);
+    const fields = list(candidate.matchedFields);
+    const paths = list(candidate.paths).map((path) => '<li><span class="tag agent">' + esc(linkTypes[path.relationType] || nice(path.relationType)) +
+      '</span> ' + memoryLink(path.fromId, candidate.projectId, labels.get(path.fromId) || path.fromId) + ' ' + icon('chevron', true) + ' ' +
+      memoryLink(path.toId, candidate.projectId, labels.get(path.toId) || path.toId) + '</li>').join('');
+    const feedback = candidate.feedback;
+    const reporters = list(feedback?.reporterKinds).map((kind) => kind === 'agent' ? 'Agent' : 'User');
+    const feedbackSource = feedback ? '<p class="small muted">' + countLabel(list(feedback.recordIds).length, 'matching task report') +
+      (reporters.length ? ' · ' + esc(reporters.join(' and ')) : '') +
+      (state.projectKit?.projectId === candidate.projectId ? ' · <a href="' + esc(routeLink('project-kit', { memory: candidate.id })) + '">Review project outcomes</a>' : '') + '</p>' : '';
+    const included = candidate.decision === 'selected';
+    return '<li><details class="candidate"><summary><span class="candidate-title"><span class="rank">#' + number(candidate.rank) + '</span>' +
+      '<span>' + esc(candidate.title || candidate.id) + '</span><span class="tag check-' + (included ? 'ok' : 'warn') + '">' +
+      (included ? 'Included' : 'Excluded') + '</span></span></summary><div class="candidate-body"><p class="small muted">' +
+      esc(contextReasons[candidate.reason] || nice(candidate.reason)) + ' Rank score ' + esc(rankScore(candidate.score)) + '.</p>' +
+      (terms.length ? '<p class="small"><strong>Matched terms</strong> ' + esc(terms.join(', ')) + '</p>' : '') +
+      (fields.length ? '<p class="small"><strong>Matched fields</strong> ' + esc(fields.map(nice).join(', ')) + '</p>' : '') +
+      (signals ? '<dl class="candidate-signals" aria-label="Ranking contributions">' + signals + '</dl>' : '') + feedbackSource + sourceMarkup(candidate.sources) +
+      (paths ? '<div><h3>Recorded link paths</h3><ul class="list">' + paths + '</ul></div>' : '') +
+      '<p>' + memoryLink(candidate.id, candidate.projectId, 'Open memory') + '</p></div></details></li>';
+  }).join('');
+  const reportCount = retrieval.truncated ? ' Candidate diagnostics are bounded to ' + number(retrieval.candidateLimit) + ' records.' : '';
+  return '<section class="context-section" aria-labelledby="retrieval-heading"><h3 id="retrieval-heading">Retrieval pipeline</h3>' +
+    '<ol class="retrieval-flow" aria-label="Retrieval stages">' + stages + '</ol><p class="small muted">Scanned ' + number(retrieval.scanned) +
+    ' memories. Ranking contributions explain ordering.' + esc(reportCount) + '</p>' +
+    (rows ? '<details class="context-section" open><summary>Candidate decisions · ' + number(candidates.length) + '</summary>' +
+      '<ul class="list candidate-list" aria-label="Candidate decisions">' + rows + '</ul></details>' : '') + '</section>';
+}
+
+function renderComparison() {
+  const target = $('context-comparison');
+  if (!target) return;
+  const { comparison, comparing, dirty } = state.context;
+  if (dirty || !comparison && !comparing) {
+    target.replaceChildren();
+    return;
+  }
+  if (comparing) {
+    target.innerHTML = skeleton('Comparing retrieval profiles…');
+    return;
+  }
+  if (comparison.error) {
+    target.innerHTML = errorMarkup(comparison.error);
+    return;
+  }
+  const { legacy, adaptive, delta } = comparison;
+  const shared = list(delta?.sharedIds);
+  const column = (label, pack, ids) => {
+    const unique = new Set(ids);
+    const entries = list(pack.entries);
+    const differences = entries.filter((entry) => unique.has(entry.id));
+    return '<div><h3>' + label + '</h3><p class="small muted">' + countLabel(entries.length, 'included memory', 'included memories') + ' · ' +
+      number(pack.budget?.estimatedTokens) + ' estimated tokens</p><p class="small"><strong>' + number(differences.length) + ' unique to ' + label + '</strong></p>' +
+      (differences.length ? '<ul class="small">' + differences.map((entry) => '<li>' +
+        memoryLink(entry.id, entry.projectId, shorten(compact(entry.excerpt), 95) || entry.id) + '</li>').join('') + '</ul>' : '') + '</div>';
+  };
+  target.innerHTML = '<h3>Profile comparison</h3><p class="small muted">Same task, scope, and requested budget · ' +
+    countLabel(shared.length, 'shared memory', 'shared memories') + '</p><div class="compare-grid">' +
+    column('Adaptive', adaptive, list(delta?.addedIds)) + column('Legacy', legacy, list(delta?.removedIds)) + '</div>' +
+    list(comparison.warnings).map((warning) => '<p class="small muted">' + esc(warning) + '</p>').join('');
+}
+
 function renderContext() {
   const output = $('context-output');
-  const { pack, dirty } = state.context;
+  const { pack, dirty, params } = state.context;
+  const status = $('context-result-state');
   if (!pack) {
-    output.innerHTML = blank('context', 'Ready for a task', 'Choose a project and describe the work to see the context and its sources here.');
+    const enabled = state.features?.features?.contextAssembly !== false;
+    status.textContent = enabled ? '' : 'Disabled';
+    output.innerHTML = enabled ? blank('context', 'Ready for a task', 'Choose a project and describe the work to see the context and its sources here.') :
+      blank('context', 'Context assembly is turned off', 'Enable it in Features to build a brief.');
     return;
   }
   const entries = list(pack.entries);
@@ -1559,7 +1875,9 @@ function renderContext() {
   const budget = pack.budget || {};
   const warnings = list(pack.warnings);
   const allowed = state.features?.features?.contextAssembly === true;
-  const canCopy = allowed && !dirty && !!pack.markdown && pack.enabled && entries.length > 0;
+  const canInspect = allowed && !dirty && pack.enabled;
+  const canCopy = canInspect && !!pack.markdown && entries.length > 0;
+  status.textContent = dirty ? 'Rebuild needed' : pack.enabled ? 'Assembled' : 'Disabled';
   const warningMarkup = warnings.map((warning) => '<p class="small muted">' + esc(warning) + '</p>').join('');
   const selection = contextReasonList(entries, (entry) => {
     const title = shorten(compact(entry.excerpt), 120) || nice(entry.category) || entry.id;
@@ -1573,34 +1891,29 @@ function renderContext() {
       esc([entry.projectName, entry.agentTool, nice(entry.category)].filter(Boolean).join(' · ')) +
       '</div>' + reason + sourceMarkup(entry.sources) + links + '</li>';
   });
-  const reasonLabels = {
-    duplicate: 'Matches a memory already considered.',
-    budget: 'Would exceed the selected budget.',
-    limit: 'Beyond the brief’s memory limit.',
-    empty: 'Contains no memory text.',
-    lookback: 'Falls outside the selected time range.',
-    archived: 'Archived in a recorded review.',
-    contested: 'Marked as needing review.',
-    superseded: 'Superseded by a recorded replacement.'
-  };
   const rejections = contextReasonList(excluded, (entry) => '<li><strong class="mono">' +
     memoryLink(entry.id, entry.projectId || (pack.scope === 'project' ? pack.projectId : ''), entry.title || entry.id) +
-    '</strong><p class="small muted">' + esc(reasonLabels[entry.reason] || nice(entry.reason)) + '</p></li>');
+    '</strong><p class="small muted">' + esc(contextReasons[entry.reason] || nice(entry.reason)) + '</p></li>');
   const projectName = state.projects.find((item) => item.id === pack.projectId)?.name || pack.projectId;
   const scope = pack.scope === 'cross-project' ? 'Cross-project · ' + projectName : projectName;
+  const usage = budget.tokenBudget > 0 ? Math.min(100, Math.max(0, budget.estimatedTokens / budget.tokenBudget * 100)) : 0;
   output.innerHTML = '<div class="panel-body stack">' + (dirty ? '<p class="status small" role="status">This preview is out of date. Assemble again to refresh it.</p>' : '') +
-    '<div class="form-actions">' + tags([['project', scope], ['memory', number(budget.estimatedTokens) + ' / ' + number(budget.tokenBudget) + ' estimated tokens']]) +
-    (canCopy ? '<button class="button toolbar-end" id="context-copy" type="button">' + icon('copy') + 'Copy brief</button>' : '') + '</div>' +
-    '<p id="copy-status" class="small muted" role="status" hidden></p><p class="small muted">' +
-    countLabel(entries.length, 'included memory', 'included memories') + ' · ' + number(excluded.length) + ' excluded · ' +
-    number(budget.usedChars) + ' / ' + number(budget.maxChars) + ' characters</p>' +
-    warningMarkup +
-    (pack.markdown && pack.enabled && entries.length ? '<pre class="context-preview mono" id="context-text" tabindex="0" aria-label="Assembled context markdown">' + esc(pack.markdown) + '</pre>' :
-      blank('context', pack.enabled ? 'No memories fit this task' : 'Context assembly is turned off', pack.enabled ? 'Review any exclusions or try a different task.' : 'Enable it in Features to build a brief.')) +
+    '<div class="context-output-head">' + tags([['project', scope], ['memory', params?.profile === 'adaptive' ? 'Adaptive' : 'Legacy']]) +
+    '<div class="form-actions">' + (canInspect && params ? '<button type="button" class="button" id="context-compare-button"' +
+      (state.context.comparing ? ' disabled' : '') + '>Compare profiles</button>' : '') +
+    (canCopy ? '<button class="button" id="context-download" type="button">Download .md</button>' +
+      '<button class="button primary" id="context-copy" type="button">' + icon('copy') + 'Copy brief</button>' : '') + '</div></div>' +
+    '<p id="copy-status" class="small muted" role="status" hidden></p><dl class="context-metrics">' +
+    '<div><dt>Estimated tokens</dt><dd>' + number(budget.estimatedTokens) + ' / ' + number(budget.tokenBudget) + '</dd><div class="context-budget-track" aria-hidden="true"><span style="width:' + usage + '%"></span></div></div>' +
+    '<div><dt>Characters</dt><dd>' + number(budget.usedChars) + ' / ' + number(budget.maxChars) + '</dd></div>' +
+    '<div><dt>Included / excluded</dt><dd>' + number(entries.length) + ' / ' + number(excluded.length) + '</dd></div></dl>' +
+    warningMarkup + '<section class="context-compare" id="context-comparison" aria-live="polite"></section>' + renderRetrieval(pack) +
     '<div class="context-reasons">' +
-    (entries.length ? '<details open><summary>Included · ' + number(entries.length) + '</summary>' + selection + '</details>' : '') +
-    (excluded.length ? '<details><summary>Excluded · ' + number(excluded.length) + '</summary>' + rejections + '</details>' : '') +
-    '</div></div>';
+    (entries.length ? '<details class="context-section"><summary>Included memories · ' + number(entries.length) + '</summary>' + selection + '</details>' : '') +
+    (excluded.length ? '<details class="context-section"><summary>Excluded memories · ' + number(excluded.length) + '</summary>' + rejections + '</details>' : '') +
+    '</div>' + (pack.markdown && pack.enabled && entries.length ? '<details class="context-section" open><summary>Assembled brief</summary><pre class="context-preview mono" id="context-text" tabindex="0" aria-label="Assembled context markdown">' + esc(pack.markdown) + '</pre></details>' :
+      blank('context', pack.enabled ? 'No memories fit this task' : 'Context assembly is turned off', pack.enabled ? 'Review any exclusions or try a different task.' : 'Enable it in Features to build a brief.')) + '</div>';
+  renderComparison();
 }
 
 async function assembleContext() {
@@ -1615,18 +1928,29 @@ async function assembleContext() {
     $('context-task').reportValidity();
     return;
   }
-  const body = { query, projectId, tokenBudget, includeCrossProject: toggle.crossProjectContext && $('context-cross').checked };
+  const profile = $('context-profile').value;
+  const body = { query, projectId, tokenBudget, includeCrossProject: toggle.crossProjectContext && $('context-cross').checked,
+    profile, ...(profile === 'adaptive' ? { expandRelated: $('context-related').checked } : {}) };
   store.pending = true;
   store.dirty = false;
+  store.pack = null;
+  store.params = body;
+  store.comparison = null;
+  store.comparing = false;
   renderContextControls();
   setBusy($('context-result'), true);
+  $('context-result-state').textContent = 'Assembling';
   $('context-output').innerHTML = skeleton('Assembling context…');
   try {
-    store.pack = await api('context', { body });
+    const pack = await api('context', { body });
+    const current = state.features?.features;
+    if (store.params === body && current?.contextAssembly && (pack.scope !== 'cross-project' || current.crossProjectContext)) store.pack = pack;
     renderContext();
   } catch (error) {
-    store.pack = null;
-    $('context-output').innerHTML = errorMarkup(error.message, 'context');
+    if (store.params === body) {
+      $('context-result-state').textContent = 'Request failed';
+      $('context-output').innerHTML = errorMarkup(error.message, 'context');
+    }
   } finally {
     store.pending = false;
     setBusy($('context-result'), false);
@@ -1634,10 +1958,44 @@ async function assembleContext() {
   }
 }
 
+async function compareContext() {
+  const store = state.context;
+  if (!store.params || store.dirty || store.pending || store.comparing || !store.pack?.enabled) return;
+  const params = store.params;
+  const { profile, ...body } = params;
+  store.comparing = true;
+  $('context-compare-button').disabled = true;
+  renderComparison();
+  try {
+    const result = await api('context-compare', { body });
+    if (!result.adaptive || !result.legacy || !result.delta) throw new Error('The server returned an unreadable comparison.');
+    if (store.params === params && !store.dirty) store.comparison = result;
+  } catch (error) {
+    if (store.params === params && !store.dirty) store.comparison = { error: error.message };
+  } finally {
+    if (store.params === params) {
+      store.comparing = false;
+      if ($('context-compare-button')) $('context-compare-button').disabled = false;
+      renderComparison();
+    }
+  }
+}
+
+function downloadContext() {
+  const { pack, dirty } = state.context;
+  if (!pack?.markdown || !pack.enabled || dirty || !state.features?.features.contextAssembly) return;
+  const url = URL.createObjectURL(new Blob([pack.markdown], { type: 'text/markdown;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'shadow-brain-context.md';
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 async function copyContext() {
   const store = state.context;
   const status = $('copy-status');
-  if (!store.pack?.markdown || store.dirty || !status) return;
+  if (!store.pack?.markdown || !store.pack.enabled || store.dirty || !status || !state.features?.features.contextAssembly) return;
   try {
     await navigator.clipboard.writeText(store.pack.markdown);
     status.textContent = 'Brief copied.';
@@ -1682,6 +2040,12 @@ function renderIntegrations(data) {
   const agentRows = agents.map((agent) => '<li class="check-row"><h3>' + esc(agent.label || agent.id) + '</h3><div class="check-result">' +
     tags(list(agent.capabilities).map((value) => ['memory', value])) + (agent.detail ? '<p class="small muted">' + esc(agent.detail) + '</p>' : '') +
     (agent.note ? '<p class="small muted">' + esc(agent.note) + '</p>' : '') + commandMarkup(agent.command) +
+    (typeof agent.config?.content === 'string' ? '<details class="integration-config"><summary>View MCP setup example</summary>' +
+      '<p class="small muted">' + esc([agent.config.format, agent.config.filename].filter(Boolean).join(' · ')) + '</p>' +
+      '<pre class="context-preview mono" tabindex="0">' + esc(agent.config.content) + '</pre>' +
+      list(agent.config.notes).map((note) => '<p class="small muted">' + esc(note) + '</p>').join('') +
+      '<div class="form-actions"><button type="button" class="button quiet" data-copy-command="' + esc(agent.config.content) + '">' +
+      icon('copy', true) + 'Copy example</button><span class="small muted" role="status"></span></div></details>' : '') +
     '<div class="form-actions">' + docsLink(agent.docs) + '</div></div>' + checkTag(agent.installation, installStates) + '</li>').join('');
   $('integrations-body').innerHTML = '<div class="stack"><section class="panel"><div class="panel-head"><div><h2>Local diagnostics</h2>' +
     (data.checkedAt ? '<p class="small muted">Last checked ' + dateMarkup(data.checkedAt) + '</p>' : '') + '</div>' +
@@ -1689,7 +2053,8 @@ function renderIntegrations(data) {
     'Copy report</button><span class="small muted" role="status"></span></div>' : '') + '</div>' +
     (checkRows ? '<ul class="list">' + checkRows + '</ul>' : blank('activity', 'No diagnostic results', 'Run checks to refresh the local status.')) +
     '</section><section class="panel"><div class="panel-head"><div><h2>Supported agents</h2>' +
-    '<p class="small muted">Installation status reflects managed files in the checked scope.</p></div></div>' +
+    '<p class="small muted">Installation status reflects project skill files. Use Live operations to inspect recorded sessions.</p></div></div>' +
+    '<div class="integration-meta"><span class="tag project">Project skill files</span><span class="tag memory">MCP setup examples</span><a class="small" href="/live">Recorded sessions ' + icon('chevron', true) + '</a></div>' +
     (agentRows ? '<ul class="list">' + agentRows + '</ul>' : blank('integrations', 'No agent data', 'Run checks to load the support catalog.')) +
     '</section></div>';
 }
@@ -1730,11 +2095,12 @@ function renderFeatures() {
   if (!state.features) return;
   const current = state.features.features;
   const overrides = new Map(list(state.features.definitions).map((item) => [item.id, item]));
+  const icons = { contextAssembly: 'context', crossProjectContext: 'graph', automaticBriefing: 'agent', liveActivity: 'activity', activityRecording: 'memory' };
   target.innerHTML = '<ul class="list">' + definitions.map((definition) => {
     const display = overrides.get(definition.id) || definition;
     const on = current[definition.id] === true;
-    return '<li class="setting"><div><h3 id="label-' + definition.id + '">' + esc(display.label) + '</h3><p class="muted small" id="desc-' +
-      definition.id + '">' + esc(display.description) + '</p></div><button type="button" class="button switch" role="switch" aria-checked="' +
+    return '<li class="setting"><div class="settings-description"><span class="tile-icon">' + icon(icons[definition.id], true) + '</span><div><h3 id="label-' + definition.id + '">' + esc(display.label) + '</h3><p class="muted small" id="desc-' +
+      definition.id + '">' + esc(display.description) + '</p></div></div><button type="button" class="button switch" role="switch" aria-checked="' +
       on + '" aria-labelledby="label-' + definition.id + '" aria-describedby="desc-' + definition.id + '" data-feature="' + definition.id + '"' +
       (state.featureSaving ? ' disabled' : '') + '><span aria-hidden="true">' + (on ? 'On' : 'Off') + '</span><span class="switch-track" aria-hidden="true"></span></button></li>';
   }).join('') + '</ul>';
@@ -1749,11 +2115,17 @@ function applyFeatures(snapshot) {
   if (state.features && snapshot.revision < state.features.revision) return;
   state.features = snapshot;
   state.activityEnabled = current.liveActivity;
-  if (before?.crossProjectContext && !current.crossProjectContext && state.context.pack?.scope === 'cross-project') state.context.dirty = true;
+  const context = state.context;
+  if (!current.contextAssembly || !current.crossProjectContext && context.params?.includeCrossProject) {
+    context.pack = null;
+    context.params = null;
+    context.comparison = null;
+    context.comparing = false;
+  }
   renderFeatures();
   renderActivity();
   renderContextControls();
-  if (state.context.pack && !state.context.pending) renderContext();
+  if (!context.pending) renderContext();
   if (current.liveActivity && before?.liveActivity !== true) void refreshActivity();
 }
 
@@ -1859,12 +2231,10 @@ function changeView(moveFocus = false) {
   for (const name of Object.keys(viewNames)) {
     const section = $('page-' + name);
     section.hidden = name !== view;
-    section.classList.remove('entered');
     const link = document.querySelector('[data-view="' + name + '"]');
     if (name === view || name === 'memories' && view === 'memory') link?.setAttribute('aria-current', 'page');
     else link?.removeAttribute('aria-current');
   }
-  if (previous !== view) $('page-' + view).classList.add('entered');
   if (moveFocus && (previous !== view || view === 'memory')) {
     window.scrollTo(0, 0);
     $('title-' + view).focus({ preventScroll: true });
@@ -1906,9 +2276,9 @@ function changeView(moveFocus = false) {
       if (project) {
         state.context.routeProject = project;
         syncProjectOptions();
-        if (state.context.pack && state.context.pack.projectId !== project) {
+        if (state.context.params && state.context.params.projectId !== project) {
           state.context.dirty = true;
-          renderContext();
+          if (!state.context.pending) renderContext();
         }
       }
       void loadOverview();
@@ -1918,6 +2288,9 @@ function changeView(moveFocus = false) {
     case 'features':
       featureStatus('');
       void loadFeatures(true);
+      break;
+    case 'project-kit':
+      void loadProjectKit();
       break;
     case 'integrations':
       if (state.integrations.snapshot) renderIntegrations(state.integrations.snapshot);
@@ -1986,8 +2359,7 @@ $('theme-setting').addEventListener('change', (event) => setPreference('theme', 
 $('motion-setting').addEventListener('change', (event) => setPreference('motion', event.target.value));
 $('memory-form').addEventListener('submit', (event) => { event.preventDefault(); changeMemorySearch(); });
 ['memory-project', 'memory-category', 'memory-agent', 'memory-state'].forEach((id) => $(id).addEventListener('change', changeMemorySearch));
-$('overview-body').addEventListener('change', (event) => {
-  if (event.target.id !== 'overview-quality-project') return;
+$('overview-quality-project').addEventListener('change', (event) => {
   const project = event.target.value;
   const route = routeLink('overview', { project });
   window.history.replaceState(null, '', route);
@@ -1995,6 +2367,14 @@ $('overview-body').addEventListener('change', (event) => {
   void loadOverview(true, project).then(() => {
     if (state.view === 'overview' && state.route === route) $('overview-quality-project')?.focus();
   });
+});
+$('overview-body').addEventListener('change', (event) => {
+  if (event.target.id !== 'attention-filter') return;
+  state.health.filter = event.target.value;
+  renderAttention();
+});
+$('overview-body').addEventListener('click', (event) => {
+  if (event.target.closest('#attention-jump')) $('attention-heading')?.focus();
 });
 $('integrations-refresh').addEventListener('click', () => { void loadIntegrations(); });
 $('graph-query').addEventListener('input', renderGraph);
@@ -2012,6 +2392,13 @@ $('graph-project').addEventListener('change', (event) => {
   renderGraph();
 }));
 $('graph-fit').addEventListener('click', () => fitGraph());
+$('graph-lens-clear').addEventListener('click', () => {
+  const anchor = state.graph.lens;
+  state.graph.lens = '';
+  renderGraph();
+  if (state.graph.nodes.some((node) => node.id === anchor)) selectGraphNode(anchor, { focus: true });
+  else $('graph-query').focus();
+});
 $('graph-in').addEventListener('click', () => zoomGraph(1.35));
 $('graph-out').addEventListener('click', () => zoomGraph(1 / 1.35));
 $('graph-svg').addEventListener('keydown', handleGraphKeyboard);
@@ -2048,6 +2435,7 @@ window.addEventListener('resize', () => {
 $('context-form').addEventListener('submit', (event) => { event.preventDefault(); void assembleContext(); });
 $('context-form').addEventListener('input', () => {
   $('context-task').setCustomValidity('');
+  $('context-related-row').hidden = $('context-profile').value !== 'adaptive';
   const store = state.context;
   if (store.pack || store.pending) {
     if (!store.dirty) {
@@ -2076,12 +2464,14 @@ $('detail-body').addEventListener('submit', (event) => {
 });
 
 document.addEventListener('click', (event) => {
-  const element = event.target.closest('[data-retry],[data-memory-clear],[data-memory-page],[data-node],[data-related],[data-edge-record],[data-feature],[data-unlink],[data-copy-command],#diagnostics-copy,#context-copy,.skip');
+  const element = event.target.closest('[data-retry],[data-memory-clear],[data-memory-page],[data-node],[data-related],[data-edge-record],[data-graph-lens],[data-feature],[data-unlink],[data-copy-command],#diagnostics-copy,#context-copy,#context-download,#context-compare-button,.skip');
   if (!element) return;
   const data = element.dataset;
   if (data.retry) {
     switch (data.retry) {
       case 'overview': void loadOverview(true, state.view === 'overview' ? routeParams().get('project') || '' : ''); break;
+      case 'health': void loadHealth(state.overviewScope); break;
+      case 'kit-profile': void loadProjectKit(true); break;
       case 'memories': void loadMemories(state.memory.query || memoryQuery(), state.memory.offset); break;
       case 'graph': void loadGraph(state.graph.project, true, state.graph.focusMemory); break;
       case 'detail': void loadDetail(state.detail.id, state.detail.project); break;
@@ -2104,6 +2494,11 @@ document.addEventListener('click', (event) => {
     graphSelectFromList(data.related, true);
   } else if (data.edgeRecord) {
     selectGraphEdge(data.edgeRecord, $('graph-inspector').contains(element));
+  } else if (data.graphLens) {
+    state.graph.lens = data.graphLens;
+    ['graph-query', 'graph-kind', 'graph-relation'].forEach((id) => { $(id).value = ''; });
+    renderGraph();
+    $('graph-lens-clear').focus();
   } else if (data.unlink) {
     void saveDetail('memory-unlink', { memoryId: state.detail.id, linkId: data.unlink }, 'link-editor');
   } else if (data.copyCommand) {
@@ -2112,6 +2507,10 @@ document.addEventListener('click', (event) => {
     void toggleFeature(data.feature);
   } else if (element.id === 'context-copy') {
     void copyContext();
+  } else if (element.id === 'context-download') {
+    downloadContext();
+  } else if (element.id === 'context-compare-button') {
+    void compareContext();
   } else if (element.id === 'diagnostics-copy') {
     void copyIntegrationText(state.integrations.snapshot?.diagnostics, 'Diagnostic report copied.', element);
   } else if (element.classList.contains('skip')) {
@@ -2119,6 +2518,8 @@ document.addEventListener('click', (event) => {
     $('main-content').focus();
   }
 });
+
+${PROJECT_KIT_SCRIPT}
 
 window.addEventListener('hashchange', () => changeView(true));
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void refreshActivity(); });

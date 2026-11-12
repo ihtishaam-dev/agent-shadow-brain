@@ -69,13 +69,13 @@ export class SubconsciousEngine {
 
     const projectId = opts.projectId ?? GlobalBrain.projectIdFor(opts.projectDir);
     const terms = contextQueryKeywords(opts.currentTask);
-    await this.brain.init();
+    this.brain.refresh();
     const annotations = this.annotations.get();
     const key = createHash('sha256').update(JSON.stringify({
       projectDir: opts.projectDir, projectId, agentTool: opts.agentTool, terms, config,
       includeCrossProject: opts.includeCrossProject, settings,
       annotationRevision: annotations.revision,
-      lastCommit: this.brain.getStorageHealth().lastSuccessfulSync,
+      memoryView: this.brain.readFingerprint(opts.includeCrossProject && settings.features.crossProjectContext ? undefined : projectId),
     })).digest('hex');
     const cached = this.cache.get(key);
     if (cached && Date.now() - cached.generatedAt.getTime() < 60_000) return structuredClone(cached);

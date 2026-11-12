@@ -3,6 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { inspectClientIntegrations } from '../../src/brain/client-integrations.js';
+import { buildClientConfig } from '../../src/brain/client-config.js';
 
 vi.mock('node:fs', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs')>();
@@ -35,6 +36,21 @@ function denied(filename: string): NodeJS.ErrnoException {
 }
 
 describe('project-only client integration checks', () => {
+  it('generates native recipes without reading or writing client settings', () => {
+    const before = fs.readdirSync(projectDir);
+    const opencode = buildClientConfig('opencode', projectDir);
+    const config = JSON.parse(opencode.content);
+    expect(config.mcp.servers.shadow_brain.type).toBe('local');
+    expect(config.mcp.servers.shadow_brain.command).toContain(projectDir);
+    expect(config.mcp.servers.shadow_brain.command.at(-1)).toBe('--stdio');
+    expect(buildClientConfig('codex').content).toContain('[mcp_servers.shadow_brain]');
+    expect(JSON.parse(buildClientConfig('claude-code').content).mcpServers.shadow_brain.args).toContain('mcp');
+    expect(buildClientConfig('deepseek-harness').notes.join(' ')).toContain('prompt templates are unsupported');
+    expect(() => buildClientConfig('unknown')).toThrow();
+    expect(fs.readdirSync(projectDir)).toEqual(before);
+    expect(vi.mocked(fs.readFileSync)).not.toHaveBeenCalled();
+  });
+
   it('checks project file presence without reading skill content or inspecting profile-shaped files', () => {
     const skill = write('.dsh/skills/shadow-workflow/SKILL.md', 'Synthetic local skill content.');
     const unrelated = write('.dsh/example-settings.json', 'Synthetic unrelated configuration.');

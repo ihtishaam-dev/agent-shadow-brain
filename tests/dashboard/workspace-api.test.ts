@@ -40,6 +40,26 @@ afterEach(async () => {
 const post = (route: string, input: unknown) => fetch(url + route, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
 
 describe('workspace API and guidance integration', () => {
+  it('compares profiles on one read view, exposes scoped attention, and never commits staged memory on read', async () => {
+    const before = fs.readFileSync(brain.dbPath, 'utf8');
+    brain.writeSync({ projectId: 'alpha', projectName: 'alpha', agentTool: 'codex', category: 'lesson', content: 'Checkout stage stays pending.', importance: 0.8, metadata: {} });
+    const refresh = vi.spyOn(brain, 'refresh');
+    const result = await (await post('context-compare', { projectId: 'alpha', query: 'checkout', tokenBudget: 1000 })).json();
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(result.adaptive.retrieval.profile).toBe('adaptive');
+    expect(result.adaptive.entries.every((entry: any) => entry.projectId === 'alpha')).toBe(true);
+    expect(result.legacy.retrieval).toBeUndefined();
+    expect(result.delta.sharedIds.length).toBeGreaterThan(0);
+    const health = await (await fetch(url + 'memory-health?project=alpha&limit=1')).json();
+    expect(health.counts.total).toBe(3);
+    expect(health.queue).toHaveLength(1);
+    expect(health.queue[0].projectId).toBe('alpha');
+    expect(fs.readFileSync(brain.dbPath, 'utf8')).toBe(before);
+    for (const input of [{ profile: ['adaptive'] }, { expandRelated: 'false' }, { profile: 'automatic' }]) {
+      expect((await post('context', { projectId: 'alpha', ...input })).status).toBe(400);
+    }
+  });
+
   it('returns real inventory, scoped recall and explicit graph relationships', async () => {
     const overview = await (await fetch(url + 'overview')).json();
     expect(overview.totals).toMatchObject({ memories: 3, projects: 2, agents: 1 });

@@ -2,8 +2,9 @@ import type { Readable, Writable } from 'node:stream';
 import { StringDecoder } from 'node:string_decoder';
 import * as path from 'node:path';
 import { MCPServer } from './mcp-server.js';
-import { getGlobalBrain } from './global-brain.js';
+import { getGlobalBrain, GlobalBrain } from './global-brain.js';
 import { FeatureSettingsStore } from './feature-settings.js';
+import { projectStorage } from './project-memory.js';
 import type { MCPRequest, MCPResponse } from '../types.js';
 
 const MAX_MESSAGE_BYTES = 1024 * 1024;
@@ -104,10 +105,13 @@ export async function serveMCPStdio(
 /** Provider-free entry point: no orchestrator, client-profile scan, or config merge. */
 export async function runMemoryMCPStdio(options: { dbPath?: string; settingsPath?: string; projectDir?: string; projectId?: string } = {}): Promise<void> {
   if (options.projectId !== undefined && !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(options.projectId)) throw new TypeError('Project ID must be a bounded identifier.');
-  const brain = getGlobalBrain(options.dbPath ? { dbPath: path.resolve(options.dbPath) } : undefined);
+  const localProject = !!options.projectDir && !!options.dbPath && path.resolve(options.dbPath) === path.resolve(options.projectDir, '.shadow-brain/project-memory.json');
+  const local = localProject ? projectStorage(options.projectDir!) : undefined;
+  if (local && options.projectId && options.projectId !== local.projectId) throw new TypeError('A project-local MCP service must use its pinned project identifier.');
+  const brain = options.dbPath ? GlobalBrain.createIsolated({ dbPath: path.resolve(options.dbPath) }) : getGlobalBrain();
   const settings = new FeatureSettingsStore({ filePath: options.settingsPath ??
     (options.dbPath ? path.join(path.dirname(path.resolve(options.dbPath)), 'feature-settings.json') : undefined) });
-  const server = new MCPServer(null, { authToken: '', toolProfile: 'memory' }, { brain, settings, projectDir: options.projectDir, projectId: options.projectId });
+  const server = new MCPServer(null, { authToken: '', toolProfile: 'memory' }, { brain, settings, projectDir: options.projectDir, projectId: local?.projectId ?? options.projectId, localProject });
   try { await serveMCPStdio(server, process.stdin, process.stdout); }
   finally { await server.finishMemorySession(); await brain.shutdown(); }
 }

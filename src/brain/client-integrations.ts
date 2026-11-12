@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { WORKFLOW_TARGETS, listBundledSkills, type WorkflowTarget } from './workflow-skills.js';
 import type { GlobalBrain } from './global-brain.js';
+import { buildClientConfig } from './client-config.js';
 
 export const CLIENT_CAPABILITIES = Object.freeze([
   { id: 'codex', label: 'Codex', target: 'codex', docs: 'https://developers.openai.com/codex/mcp/' },
@@ -47,7 +48,7 @@ function inspectSkill(root: string, relativePath: string): 'present' | 'missing'
   return 'present';
 }
 
-export function inspectClientIntegrations(options: { projectDir?: string; brain?: GlobalBrain } = {}) {
+export function inspectClientIntegrations(options: { projectDir?: string; brain?: GlobalBrain; localProjectId?: string } = {}) {
   let root: string | undefined;
   let projectError: string | undefined;
   if (options.projectDir) {
@@ -68,6 +69,7 @@ export function inspectClientIntegrations(options: { projectDir?: string; brain?
         ? present + ' of ' + skills.length + ' skill files found. Host loading and live connections are not checked.'
         : 'Choose a project to check skill-file presence. No client profile is inspected.'),
       command: 'shadow-brain skills install . --target ' + client.target + ' --apply', docs: client.docs,
+      config: buildClientConfig(client.id, root, options.localProjectId ? { dbPath: options.brain?.dbPath, projectId: options.localProjectId } : {}),
       ...(client.id === 'deepseek-harness' ? { note: 'Enable the filesystem-skill and MCP client plugins in the host; no MCP server is enabled by default.' } : {}),
     };
   });
@@ -81,7 +83,7 @@ export function inspectClientIntegrations(options: { projectDir?: string; brain?
       detail: health?.lastError ? 'Storage reports ' + health.lastError.code + '.' : health?.initialized ? 'Store initialized; ' + health.pendingOperations + ' pending operations.' : 'Not initialized in this process. No read success is claimed.' },
     { id: 'stdio', label: 'MCP transport', status: 'pass', detail: 'Standalone memory/workflow stdio service is included. This is capability information, not a connected-client claim.', command: 'shadow-brain mcp --stdio' },
   ];
-  const result = { checkedAt: new Date().toISOString(), version: '7.1.3', checks, agents };
+  const result = { checkedAt: new Date().toISOString(), version: '7.1.4', checks, agents };
   return { ...result, diagnostics: JSON.stringify({ version: result.version, checkedAt: result.checkedAt, node: process.versions.node,
     checks, agents: agents.map(({ id, installation, presentSkills, totalSkills }) => ({ id, installation, presentSkills, totalSkills })) }, null, 2) };
 }

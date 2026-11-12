@@ -1,79 +1,68 @@
 # Connect a coding client
 
-Agent Shadow Brain supplies six project skills and a local MCP service. Install the skills for workflow guidance, configure MCP for memory and context tools, or use both.
+Agent Shadow Brain provides six reusable workflow skills, project-specific skill generation, and a local MCP service. Skills guide the host's work; MCP exposes saved memory and context. A client must load the skill or call the tool for it to take effect.
 
-## Install and preview
+## Start with a local project
 
-Run these commands from the project root. Replace `CLIENT_TARGET` with `codex`, `claude-code`, `opencode`, or `deepseek-harness`.
+Run these commands from the project root:
 
 ```bash
-npm install -g @theihtisham/agent-shadow-brain@7.1.3
-shadow-brain skills install . --target CLIENT_TARGET
-shadow-brain skills install . --target CLIENT_TARGET --apply
+npm install -g @theihtisham/agent-shadow-brain@7.1.4
+shadow-brain project workspace .
+shadow-brain project config . --target codex
+```
+
+The portal stores knowledge in `.shadow-brain/project-memory.json`. The generated recipe pins MCP to that same project and file, so a saved note can be recalled by the agent and its tool calls appear in the matching portal's **Live** view. The recipe is printed, not installed. Merge the entry with your existing host settings, then reconnect the client.
+
+![Native configuration recipes](assets/7.1.4-integrations.png)
+
+## Choose a client
+
+| Target | Native recipe | Project skill location |
+| --- | --- | --- |
+| `codex` | TOML entry for `.codex/config.toml` | `.agents/skills` |
+| `claude-code` | JSON entry for `.mcp.json` | `.claude/skills` |
+| `opencode` | JSON entry for `opencode.json` | `.opencode/skills` |
+| `deepseek-harness` | MCP client plugin YAML entry | `.dsh/skills` |
+| `portable` | Common `mcpServers` JSON wrapper | `.agents/skills`, if supported by the host |
+
+```bash
+shadow-brain project config . --target claude-code
+shadow-brain project config . --target opencode
+shadow-brain project config . --target deepseek-harness
+```
+
+Recipes contain an absolute Node executable and installed CLI path. Regenerate them after moving the installation. OpenCode V2 uses `mcp.servers`; consult the documentation for an older host. DeepSeek Harness requires the MCP client plugin and, for skill discovery, the filesystem skill provider. Its documented MCP bridge supports tools and resources; prompt templates are unsupported. A generic wrapper is not universal configuration for every client.
+
+[Codex MCP](https://learn.chatgpt.com/docs/extend/mcp?surface=cli) · [Claude Code MCP](https://code.claude.com/docs/en/mcp) · [OpenCode MCP](https://opencode.ai/docs/mcp-servers/) · [Harness MCP client](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/mcp/mcp-client/README.md) · [Harness filesystem skills](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/skill/skill-filesystem/README.md)
+
+## Add workflow skills
+
+```bash
+shadow-brain skills install . --target codex
+shadow-brain skills install . --target codex --apply
 shadow-brain clients inspect .
 ```
 
-The first skill command previews the files. Apply after checking the preview. The inspection reports which project skill files are present. Check discovery in the client after it reloads the project. [Skill install details](WORKFLOW_INTEGRATION.md)
+The first command previews the reusable skill bundle. The second applies it. Local inspection checks only the selected project skill paths; it does not read client profiles or verify that a host loaded a skill. The **Project Kit** view separately generates a tailored skill from observed project evidence and your requirement. [Project Kit guide](PROJECT_KIT.md) · [Bundle installation and safe updates](WORKFLOW_INTEGRATION.md)
 
-## Get the MCP launch command
+## Verify a connection
 
-```bash
-shadow-brain clients config
-```
+Ask the connected host to call `workflow_skills`, then `context_pack` with the selected project ID, your current task, and `profile: "adaptive"`. Check the returned memory IDs and sources. A successful host call verifies the connection. With recording enabled, its measured boundaries appear in the matching portal's Live view.
 
-Use the returned `command` as `NODE_EXECUTABLE` and the first `args` item as `SHADOW_BRAIN_CLI` in the examples below. Keep `mcp` and `--stdio` as separate arguments. Absolute paths help when a client runs outside the shell where you installed the package.
+The regular memory profile offers twelve tools, two static resources, a scoped memory resource template, and two task/handoff prompt templates. A project-local MCP launch additionally exposes Project Kit inspection, explicit knowledge storage, skill preview, and guarded apply. Use the current `tools/list` response for available tools. Resource references are saved labels; the service does not open their targets.
 
-### Codex
+`activity_report` records explicitly reported phases or spans. Reported activity is labelled separately from measured MCP calls. Neither exposes a model's hidden reasoning.
 
-The skills target installs to `.agents/skills`. Register the stdio server and check that it appears in Codex's list.
+## Keep an existing shared store
 
-```bash
-codex mcp add shadow-brain -- "NODE_EXECUTABLE" "SHADOW_BRAIN_CLI" mcp --stdio
-codex mcp list
-```
-
-[Codex MCP setup](https://learn.chatgpt.com/docs/extend/mcp?surface=cli) · [Codex skill discovery](https://learn.chatgpt.com/docs/build-skills)
-
-### Claude Code
-
-The skills target installs to `.claude/skills`. From the project root, add a local-scoped server and check it with `claude mcp list` or `/mcp` inside Claude Code.
+Existing global-store workflows remain available:
 
 ```bash
-claude mcp add --transport stdio --scope local shadow-brain -- "NODE_EXECUTABLE" "SHADOW_BRAIN_CLI" mcp --stdio
-claude mcp list
+shadow-brain dash . --no-analysis
+shadow-brain clients config --target codex --project .
 ```
 
-[Claude Code MCP setup](https://code.claude.com/docs/en/mcp) · [Claude Code skills](https://code.claude.com/docs/en/skills)
+For any other explicit store, add `--db PATH` to `clients config`. This prints a recipe for that file; it does not migrate or merge memory. The default dashboard cannot display a different store's activity journal. Use the project portal and its matching recipe for the simplest isolated setup.
 
-### OpenCode
-
-The skills target installs to `.opencode/skills`. With OpenCode V2, add the local command from the project root. For an older OpenCode build, use its interactive `opencode mcp add` flow and enter the same local command and arguments.
-
-```bash
-opencode mcp add shadow-brain -- "NODE_EXECUTABLE" "SHADOW_BRAIN_CLI" mcp --stdio
-opencode mcp list
-```
-
-[OpenCode MCP setup](https://opencode.ai/docs/mcp-servers/) · [OpenCode skills](https://opencode.ai/docs/skills/) · [Interactive CLI reference](https://docs.dev.opencode.ai/docs/cli/#mcp)
-
-### DeepSeek Harness
-
-Install the skills at the repository root so the filesystem skill provider can discover `.dsh/skills`. Enable the filesystem skill provider and skill tools in the host. For MCP, add a local stdio server through your profile's MCP settings where available. In a Cordis composition, use a separate client entry in the intended scope.
-
-```yaml
-- id: shadow-brain-mcp
-  name: '@deepseek-ai/dsh-mcp-client'
-  config:
-    serverName: shadow-brain
-    transport: stdio
-    command: 'NODE_EXECUTABLE'
-    args: ['SHADOW_BRAIN_CLI', 'mcp', '--stdio']
-```
-
-[DeepSeek Harness MCP client](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/mcp/mcp-client/README.md) · [Filesystem skill provider](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/skill/skill-filesystem/README.md)
-
-## Check a tool call
-
-From a connected session, ask the client to list the Shadow Brain skills with `workflow_skills`, or build a brief with `context_pack` using the selected project ID. A successful call confirms the connection. With recording enabled, a measured call appears in the local `/live` view. The explicit `activity_report` tool adds host-reported metadata to the journal.
-
-The stdio service uses the local memory store. To use a separate store, append `--db` and an absolute file path to the server arguments. Add `--settings` and an absolute settings path if needed. [Workspace and activity guide](WORKSPACE.md) · [Troubleshooting](TROUBLESHOOTING.md)
+[Workspace guide](WORKSPACE.md) · [MCP specification](https://modelcontextprotocol.io/specification/2025-11-25/server/tools) · [Troubleshooting](TROUBLESHOOTING.md)

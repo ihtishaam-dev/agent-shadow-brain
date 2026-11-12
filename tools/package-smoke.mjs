@@ -35,7 +35,10 @@ const pack = Array.isArray(packOutput) ? packOutput[0] : Object.values(packOutpu
 const tarball = path.join(sandbox, pack.filename);
 assert.equal('sha512-' + createHash('sha512').update(fs.readFileSync(tarball)).digest('base64'), pack.integrity);
 assert(pack.files.some(file => file.path === 'dist/brain/global-brain.js'));
-for (const file of ['activity-cli', 'curation-cli', 'brain/activity-journal', 'brain/memory-annotations', 'brain/mcp-stdio', 'dashboard/live-workspace-html']) {
+for (const file of ['activity-cli', 'curation-cli', 'project-cli', 'brain/activity-journal', 'brain/memory-annotations', 'brain/mcp-stdio',
+  'brain/context-retrieval', 'brain/context-request', 'brain/client-config', 'brain/memory-inspection', 'brain/memory-mcp-content',
+  'brain/project-kit', 'brain/project-kit-paths', 'brain/project-kit-inspection', 'brain/project-memory', 'brain/project-feedback',
+  'dashboard/project-workspace', 'dashboard/demo-workspace', 'dashboard/project-kit-html', 'dashboard/live-workspace-html']) {
   assert(pack.files.some(entry => entry.path === 'dist/' + file + '.js'), 'missing packaged module ' + file);
   assert(pack.files.some(entry => entry.path === 'dist/' + file + '.d.ts'), 'missing packaged declaration ' + file);
 }
@@ -45,7 +48,7 @@ for (const name of bundledNames) assert(pack.files.some(file => file.path === `s
 assert(pack.files.some(file => file.path === 'docs/assets/context-flow-v7.2.png'));
 assert(pack.files.some(file => file.path === 'docs/WORKSPACE.md'));
 assert(!pack.files.some(file => /(^|\/)(tests|node_modules|work|outputs|\.git|\.env|\.npmrc)(\/|$)/.test(file.path)));
-assert(!pack.files.some(file => /(^|\/)(global|memory-annotations|feature-settings|activity-journal)\.json$/.test(file.path)));
+assert(!pack.files.some(file => /(^|\/)(global|project-memory|memory-feedback|memory-annotations|feature-settings|activity-journal)\.json$/.test(file.path)));
 fs.writeFileSync(path.join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
 npm(['install', '--prefix', consumer, '--ignore-scripts', '--no-audit', '--no-fund', tarball]);
 const installed = path.join(consumer, 'node_modules', '@theihtisham', 'agent-shadow-brain');
@@ -71,6 +74,7 @@ const runNode = (args, status = 0, input, configDir = path.join(sandbox, 'config
 const cli = path.join(installed, 'dist', 'cli.js');
 assert.match(fs.readFileSync(cli, 'utf8'), /^#!\/usr\/bin\/env node/);
 assert.equal(runNode([cli, '--version']).trim(), expected.version);
+runNode([cli, 'demo', 'workspace', '--port', '-1'], 1);
 assert.match(runNode([cli, '--help']), /storage-health/);
 assert(!fs.existsSync(path.join(sandbox, 'config')), 'help/version must not load or create configuration');
 const db = path.join(sandbox, 'global.json');
@@ -226,7 +230,7 @@ const replies = runNode([cli, 'mcp', '--stdio', '--db', db], 0, stdioInput, guar
 assert.deepEqual(replies.map(reply => reply.id), [1, 2, 3, 4, 5, 6]);
 assert.equal(replies[0].result.protocolVersion, '2025-06-18');
 const tools = replies[1].result.tools;
-assert.equal(tools.filter(tool => tool.annotations.readOnlyHint === true).length, 9);
+assert.equal(tools.filter(tool => tool.annotations.readOnlyHint === true).length, 11);
 assert.deepEqual(tools.filter(tool => tool.annotations.readOnlyHint === false).map(tool => tool.name), ['activity_report']);
 assert.equal(JSON.parse(replies[2].result.content[0].text).entries[0].id, memoryId);
 assert.equal(JSON.parse(replies[3].result.content[0].text).event.source, 'reported');
@@ -288,6 +292,73 @@ try {
 `);
 runNode([publicProbe]);
 
+// The exact installed artifact must keep project knowledge, skills, feedback,
+// client recipes and a fresh MCP process connected to the same local store.
+const localProject = path.join(consumer, 'local-project');
+fs.mkdirSync(localProject);
+fs.writeFileSync(path.join(localProject, 'package.json'), JSON.stringify({ name: 'consumer-fixture', scripts: { test: 'NEVER_EXECUTE_PACKAGE_FIXTURE' }, devDependencies: { vitest: '*' } }));
+const observed = JSON.parse(runNode([cli, 'project', 'inspect', localProject]));
+assert(observed.stack.includes('Node.js'));
+assert(!JSON.stringify(observed).includes('NEVER_EXECUTE_PACKAGE_FIXTURE'));
+const known = JSON.parse(runNode([cli, 'project', 'knowledge', localProject, '--title', 'Checkout idempotency', '--content', 'Checkout retries reuse the original idempotency key.', '--source', 'docs/checkout.md']));
+const localDb = path.join(localProject, '.shadow-brain', 'project-memory.json');
+assert(fs.existsSync(localDb));
+const skillArgs = [cli, 'project', 'skill', localProject, '--target', 'codex', '--name', 'checkout-retries', '--requirement', 'Verify checkout retry idempotency'];
+const skillPlan = JSON.parse(runNode(skillArgs));
+assert.equal(skillPlan.files[0].relativePath, '.agents/skills/checkout-retries/SKILL.md');
+assert(!fs.existsSync(path.join(localProject, '.agents')));
+runNode([...skillArgs, '--apply', '--expected-plan-hash', skillPlan.planHash]);
+assert(fs.readFileSync(path.join(localProject, skillPlan.files[0].relativePath), 'utf8').includes('Verify checkout retry idempotency'));
+const learned = JSON.parse(runNode([cli, 'project', 'feedback', 'record', localProject, '--memory', known.memoryId, '--task', 'checkout retry idempotency', '--rating', 'useful', '--reason', 'Synthetic caller-observed fixture outcome.']));
+assert.equal(learned.records[0].reporter, 'user');
+const localContext = JSON.parse(runNode([cli, 'context-pack', 'checkout retry idempotency', '--project', localProject, '--db', localDb, '--profile', 'adaptive', '--json']));
+assert.equal(localContext.entries[0].id, known.memoryId);
+assert(localContext.retrieval.candidates[0].signals.some(signal => signal.label === 'Project task feedback' && signal.value > 0));
+const recipe = JSON.parse(runNode([cli, 'project', 'config', localProject, '--target', 'claude-code']));
+const launch = JSON.parse(recipe.content).mcpServers.shadow_brain;
+assert(launch.args.includes(localDb));
+assert(launch.args.includes(observed.projectId));
+const projectInput = [
+  { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25', clientInfo: { name: 'package-probe', version: '1' }, capabilities: {} } },
+  { jsonrpc: '2.0', method: 'notifications/initialized' },
+  { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+  call(3, 'context_pack', { projectId: observed.projectId, query: 'checkout retry idempotency', profile: 'adaptive' }),
+  call(4, 'project_inspect'),
+  { jsonrpc: '2.0', id: 5, method: 'resources/list' },
+  { jsonrpc: '2.0', id: 6, method: 'prompts/get', params: { name: 'shadow-task', arguments: { projectId: observed.projectId, request: 'checkout retry idempotency' } } },
+  call(7, 'project_feedback'),
+  call(8, 'project_feedback', { kind: 'record', expectedRevision: learned.revision, memoryId: known.memoryId, task: 'checkout retry idempotency', rating: 'useful', reason: 'Explicit synthetic host report.' }),
+].map(value => JSON.stringify(value)).join('\n') + '\n';
+const projectReplies = runNode(launch.args, 0, projectInput, guardConfig).trim().split(/\r?\n/).map(line => JSON.parse(line));
+assert(projectReplies.every(reply => !reply.error && !reply.result?.isError), JSON.stringify(projectReplies));
+assert.equal(projectReplies[1].result.tools.length, 17);
+assert.equal(projectReplies[2].result.structuredContent.entries[0].id, known.memoryId);
+assert.equal(projectReplies[3].result.structuredContent.projectId, observed.projectId);
+assert.equal(projectReplies[4].result.resources.length, 2);
+assert(projectReplies[5].result.messages[0].content.text.includes('idempotency'));
+assert(projectReplies[7].result.structuredContent.records.some(record => record.reporter === 'agent'));
+runNode([cli, 'project', 'feedback', 'set', 'off', '--project', localProject]);
+const disabledContext = JSON.parse(runNode([cli, 'context-pack', 'checkout retry idempotency', '--project', localProject, '--db', localDb, '--profile', 'adaptive', '--json']));
+assert(!disabledContext.retrieval.candidates[0].signals.some(signal => signal.label === 'Project task feedback'));
+const portalProbe = path.join(consumer, 'portal-probe.mjs');
+fs.writeFileSync(portalProbe, `import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { startProjectWorkspace, startDemoWorkspace, ProjectFeedbackStore, inspectProject, GlobalBrain } from '@theihtisham/agent-shadow-brain';
+const portal = await startProjectWorkspace(${JSON.stringify(localProject)});
+try {
+  const overview = await (await fetch(portal.url + '/api/workspace/overview')).json();
+  assert.equal(overview.projectKit.projectId, ${JSON.stringify(observed.projectId)});
+  assert.equal(overview.totals.memories, 1);
+  assert((await (await fetch(portal.url + '/workspace')).text()).includes('data-project-local="true"'));
+} finally { await portal.close(); }
+assert(fs.existsSync(${JSON.stringify(localDb)}));
+const demo = await startDemoWorkspace({ activity: false });
+try { assert((await (await fetch(demo.url + '/workspace')).text()).includes('data-demo="true"')); }
+finally { await demo.close(); }
+assert(!fs.existsSync(demo.directory));
+`);
+runNode([portalProbe]);
+
 for (const [modulePath, name, marker] of [
   ['workspace-html', 'WORKSPACE_HTML', 'Memory relationships'],
   ['live-workspace-html', 'LIVE_WORKSPACE_HTML', 'Live operations'],
@@ -315,5 +386,7 @@ console.log(JSON.stringify({
     'instruction preservation', 'idempotent install', 'local-edit conflict', 'workflow CLI/file/library',
     'scoped context CLI/library', 'persistent feature controls', 'disabled memory-read bypass',
     'curation CLI and context suppression', 'activity CLI and cursor', 'stdio handshake and tool permissions',
-    'measured and reported metadata without tool arguments', 'served live workspace and telemetry', 'workspace scripts and README artwork'],
+    'measured and reported metadata without tool arguments', 'served live workspace and telemetry', 'workspace scripts and README artwork',
+    'project inspection without script execution', 'local knowledge and protected skill apply', 'reversible task feedback and reporter attribution',
+    'fresh MCP project recipe, resources and prompts', 'persistent project portal and isolated demo teardown', 'demo CLI invalid-port validation'],
 }, null, 2));

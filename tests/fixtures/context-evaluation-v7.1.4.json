@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 1,
+  "description": "Author-generated coding-memory fixtures with explicit relevance and exclusion judgments.",
+  "rankingTime": "2026-11-12T00:00:00.000Z",
+  "entryTime": "2026-10-01T00:00:00.000Z",
+  "cases": [
+    {
+      "id": "exact-control",
+      "name": "Exact lexical control",
+      "query": "mirror checksum",
+      "entries": [
+        { "id": "checksum-decision", "content": "The mirror checksum comes from the release manifest." },
+        { "id": "other", "content": "The HTTP headers are tested independently." }
+      ],
+      "relevant": ["checksum-decision"],
+      "forbidden": ["other"],
+      "first": "checksum-decision",
+      "legacyShouldPass": true
+    },
+    {
+      "id": "no-evidence",
+      "name": "No lexical evidence",
+      "query": "oscillograph",
+      "entries": [
+        { "id": "ordinary", "content": "Refresh deployment markers after rollback." }
+      ],
+      "relevant": [],
+      "forbidden": ["ordinary"],
+      "expectedCount": 0,
+      "legacyShouldPass": true
+    },
+    {
+      "id": "word-boundaries",
+      "name": "Exact Java match and metadata boundary",
+      "query": "java",
+      "entries": [
+        { "id": "javascript", "content": "JavaScript compiler notes.", "importance": 1 },
+        { "id": "metadata-only", "content": "Compiler notes.", "metadata": { "javaFlag": false } },
+        { "id": "java", "content": "The build uses Java.", "importance": 0.2 }
+      ],
+      "relevant": ["java"],
+      "forbidden": ["javascript", "metadata-only"],
+      "first": "java"
+    },
+    {
+      "id": "late-identifier",
+      "name": "Late identifier remains visible in the excerpt",
+      "query": "ParserSealError",
+      "entries": [
+        {
+          "id": "retry-error",
+          "contentPrefix": { "text": "General boilerplate. ", "count": 65 },
+          "content": "ParserSealError caused retry exhaustion."
+        }
+      ],
+      "relevant": ["retry-error"],
+      "forbidden": [],
+      "passage": { "id": "retry-error", "includes": "ParserSealError caused retry exhaustion." }
+    },
+    {
+      "id": "duplicate-pressure",
+      "name": "Exact duplicates leave room for a distinct checksum lesson",
+      "query": "checksum",
+      "entries": [
+        { "id": "canonical", "content": "Checksum duplicate boilerplate.", "importance": 1 },
+        {
+          "id": "evidence",
+          "content": " CHECKSUM DUPLICATE BOILERPLATE. ",
+          "importance": 0.9,
+          "metadata": { "sourceFile": "docs/checksum.md" }
+        },
+        { "id": "duplicate", "copies": 202, "content": "Checksum duplicate boilerplate.", "importance": 0.95 },
+        { "id": "distinct", "content": "Checksum rotates after signature refresh.", "importance": 0.1 }
+      ],
+      "relevant": ["canonical", "distinct"],
+      "forbidden": ["evidence"],
+      "reference": { "id": "canonical", "source": "docs/checksum.md", "memoryId": "evidence" }
+    },
+    {
+      "id": "camel-to-snake",
+      "name": "Whole camelCase query matches snake_case",
+      "query": "deferredQueueLimit",
+      "entries": [
+        { "id": "limit", "content": "The deferred_queue_limit setting is intentionally low." },
+        { "id": "unrelated", "content": "The default queue drains asynchronously." }
+      ],
+      "relevant": ["limit"],
+      "forbidden": ["unrelated"],
+      "first": "limit"
+    },
+    {
+      "id": "snake-to-camel",
+      "name": "Whole snake_case query matches PascalCase",
+      "query": "parser_seal_error",
+      "entries": [
+        { "id": "failure", "content": "ParserSealError indicates an invalid resume checkpoint." },
+        { "id": "unrelated", "content": "The parser accepts a new input stream." }
+      ],
+      "relevant": ["failure"],
+      "forbidden": ["unrelated"],
+      "first": "failure"
+    },
+    {
+      "id": "path-reference",
+      "name": "Relative query matches a recorded Windows source reference",
+      "query": "src/transport/limiter.ts",
+      "entries": [
+        { "id": "reference", "content": "Review the rate-limit evidence.", "metadata": { "source": "C:\\repo\\src\\transport\\limiter.ts:42" } },
+        { "id": "same-basename", "content": "Review the test limits.", "metadata": { "source": "C:\\repo\\fixtures\\limiter.ts" } }
+      ],
+      "relevant": ["reference"],
+      "forbidden": ["same-basename"],
+      "matchedField": { "id": "reference", "field": "source" }
+    },
+    {
+      "id": "unicode-token",
+      "name": "Unicode text and code punctuation",
+      "query": "C++ 再試行",
+      "entries": [
+        { "id": "native-retry", "content": "C++ transport: 再試行が失敗した。" },
+        { "id": "unrelated", "content": "The green build is ready." }
+      ],
+      "relevant": ["native-retry"],
+      "forbidden": ["unrelated"],
+      "passage": { "id": "native-retry", "includes": "C++ transport: 再試行" }
+    },
+    {
+      "id": "scope-fence",
+      "name": "Cross-project setting alone preserves project scope",
+      "query": "import retries",
+      "crossProjectSetting": true,
+      "entries": [
+        { "id": "own", "content": "Import retries restore the local checkpoint." },
+        { "id": "foreign", "projectId": "beta", "content": "Import retries delete the remote checkpoint. FOREIGN_CONTENT_SENTINEL", "importance": 1, "metadata": { "source": "docs/foreign-scope-sentinel.md" } }
+      ],
+      "relevant": ["own"],
+      "forbidden": ["foreign"],
+      "hiddenIds": ["foreign"],
+      "hiddenText": ["Synthetic beta", "FOREIGN_CONTENT_SENTINEL", "docs/foreign-scope-sentinel.md"],
+      "legacyShouldPass": true
+    },
+    {
+      "id": "explicit-broad",
+      "name": "Both cross-project gates permit labeled origins",
+      "query": "import retries",
+      "crossProjectSetting": true,
+      "includeCrossProject": true,
+      "entries": [
+        { "id": "own", "content": "Import retries restore the local checkpoint." },
+        { "id": "foreign", "projectId": "beta", "content": "Import retries repair the remote checkpoint." }
+      ],
+      "relevant": ["own", "foreign"],
+      "forbidden": [],
+      "expectedCount": 2,
+      "legacyShouldPass": true
+    },
+    {
+      "id": "review-state",
+      "name": "Archived, contested, and superseded states remain excluded",
+      "query": "ledger retries",
+      "entries": [
+        { "id": "current", "content": "Ledger retries reconcile the new sequence." },
+        { "id": "archived", "content": "Ledger retries read the previous migration." },
+        { "id": "contested", "content": "Ledger retries may use an alternate sequence." },
+        { "id": "superseded", "content": "Ledger retries rebuild the older sequence." }
+      ],
+      "reviews": { "archived": "archived", "contested": "contested" },
+      "links": [
+        { "id": "replacement-link", "fromId": "current", "toId": "superseded", "type": "supersedes" }
+      ],
+      "relevant": ["current"],
+      "forbidden": ["archived", "contested", "superseded"],
+      "expectedCount": 1,
+      "legacyShouldPass": true
+    },
+    {
+      "id": "recorded-one-hop",
+      "name": "Recorded links stop at one hop and preserve contradiction caution",
+      "query": "import replay",
+      "entries": [
+        { "id": "seed", "content": "Import retry replay establishes the current path." },
+        { "id": "support", "content": "The traced race starts during cleanup." },
+        { "id": "related", "content": "The previous format uses an atomic journal." },
+        { "id": "second-hop", "content": "An old host used a different transport." },
+        { "id": "conflict", "content": "The independent trace disputes that ordering." },
+        { "id": "archived", "content": "The old host uses an archived sequence." }
+      ],
+      "reviews": { "archived": "archived" },
+      "links": [
+        { "id": "support-link", "fromId": "support", "toId": "seed", "type": "supports" },
+        { "id": "related-link", "fromId": "seed", "toId": "related", "type": "related" },
+        { "id": "next-link", "fromId": "support", "toId": "second-hop", "type": "related" },
+        { "id": "conflict-link", "fromId": "seed", "toId": "conflict", "type": "contradicts" },
+        { "id": "archived-link", "fromId": "seed", "toId": "archived", "type": "supports" }
+      ],
+      "relevant": ["seed", "support", "related"],
+      "forbidden": ["second-hop", "conflict", "archived"],
+      "path": { "id": "support", "relationId": "support-link", "seedId": "seed" },
+      "markdownIncludes": "Recorded contradiction with:"
+    },
+    {
+      "id": "rendered-budget",
+      "name": "Tight Unicode and code budget still shows the matched identifier",
+      "query": "RetrySeal",
+      "tokenBudget": 155,
+      "entries": [
+        {
+          "id": "unicode-run",
+          "contentPrefix": { "text": "Imported output. ", "count": 60 },
+          "content": "RetrySeal ",
+          "contentSuffix": { "text": "再試行が失敗しました 🧪 [code]/ ", "count": 45 }
+        }
+      ],
+      "relevant": ["unicode-run"],
+      "forbidden": [],
+      "passage": { "id": "unicode-run", "includes": "RetrySeal" },
+      "requiresUnicodeBudget": true
+    }
+  ]
+}

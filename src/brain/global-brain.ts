@@ -14,6 +14,7 @@ import {
   ScoredGlobalEntry,
 } from '../types.js';
 import { getBrainBus } from './brain-bus.js';
+import { contextSearchMemory, type ContextSearchMemory } from './context-retrieval.js';
 
 const DEFAULT_DB_PATH = path.join(os.homedir(), '.shadow-brain', 'global.json');
 const LOCK_TIMEOUT_MS = 5000;
@@ -242,6 +243,12 @@ export class GlobalBrain {
     return GlobalBrain.instance;
   }
 
+  /** Explicit independent store. Does not replace or consult the global singleton. */
+  static createIsolated(config: Partial<GlobalBrainConfig> & { dbPath: string }): GlobalBrain {
+    if (typeof config.dbPath !== 'string' || !config.dbPath.trim()) throw new TypeError('An explicit memory-store path is required.');
+    return new GlobalBrain(config);
+  }
+
   async init(): Promise<void> {
     this.initialize();
   }
@@ -391,6 +398,17 @@ export class GlobalBrain {
     return result;
   }
 
+  /** Read the scoped fields used by context ranking without exposing mutable memory records. */
+  *contextEntries(opts: Pick<RecallOptions, 'projectId' | 'minImportance' | 'excludeIds'>): IterableIterator<ContextSearchMemory> {
+    if (!this.initialized) return;
+    const minImportance = boundedSignal(opts.minImportance);
+    for (const entry of this.entries.values()) {
+      if (opts.projectId && entry.projectId !== opts.projectId) continue;
+      if (opts.excludeIds?.has(entry.id) || entry.importance < minImportance) continue;
+      yield contextSearchMemory(entry);
+    }
+  }
+
   private findMatches(opts: RecallOptions, keywords: string[]): RecallMatch[] {
     const minImportance = boundedSignal(opts.minImportance);
     const matches: RecallMatch[] = [];
@@ -481,6 +499,17 @@ export class GlobalBrain {
   getEntry(id: string): GlobalEntry | undefined {
     const entry = this.entries.get(id);
     return entry ? structuredClone(entry) : undefined;
+  }
+
+  /** Hash the actual read view, including staged entries, without committing or recording access. */
+  readFingerprint(projectId?: string): string {
+    const hash = crypto.createHash('sha256');
+    for (const entry of this.entries.values()) {
+      if (projectId !== undefined && entry.projectId !== projectId) continue;
+      hash.update(JSON.stringify(entry));
+      hash.update('\n');
+    }
+    return hash.digest('hex');
   }
 
   /** Refresh the local read view without acknowledging or committing pending operations. */

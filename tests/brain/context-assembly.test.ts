@@ -286,6 +286,31 @@ describe('bounded memory context', () => {
 });
 
 describe('actual automatic briefings', () => {
+  it('refreshes external commits and staged entries before cache lookup without flushing pending writes', async () => {
+    await brain.init();
+    add({ content: 'Parser original cache evidence.' });
+    await brain.sync();
+    const engine = new SubconsciousEngine({}, brain, settings);
+    const options = { ...briefingOptions, currentTask: 'parser' };
+    const first = await engine.generateBriefing(options);
+    add({ projectId: 'project-b', content: 'Other project memory must not invalidate a scoped cache.' });
+    expect((await engine.generateBriefing(options)).sessionId).toBe(first.sessionId);
+    add({ content: 'Parser newly staged evidence.' });
+    const before = fs.readFileSync(dbPath, 'utf8');
+    const staged = await engine.generateBriefing(options);
+    expect(staged.fullText).toContain('newly staged evidence');
+    expect(staged.sessionId).not.toBe(first.sessionId);
+    expect(fs.readFileSync(dbPath, 'utf8')).toBe(before);
+    const external = JSON.parse(before);
+    external.entries.push({ ...external.entries[0], id: 'external-cache-entry', content: 'Parser externally committed evidence.' });
+    fs.writeFileSync(dbPath, JSON.stringify(external));
+    const updated = await engine.generateBriefing(options);
+    expect(updated.fullText).toContain('externally committed evidence');
+    expect(updated.fullText).toContain('newly staged evidence');
+    expect(updated.sessionId).not.toBe(staged.sessionId);
+    expect(JSON.parse(fs.readFileSync(dbPath, 'utf8')).entries).toHaveLength(2);
+  });
+
   it('keeps the existing singleton runtime-configuration behavior', async () => {
     const engine = getSubconscious();
     expect(getSubconscious({ enabled: false })).toBe(engine);

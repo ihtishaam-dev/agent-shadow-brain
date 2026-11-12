@@ -1,5 +1,7 @@
 # Workspace guide
 
+For a persistent project-local portal, run `shadow-brain project workspace .`. Knowledge, settings, reviews and activity stay in that project; generated skills use the selected host’s project skill folder. See [Project Kit](PROJECT_KIT.md). The shared-store dashboard below remains available.
+
 Start the local workspace from your project directory.
 
 ```bash
@@ -8,7 +10,7 @@ shadow-brain dash . --no-analysis
 
 The CLI binds to `127.0.0.1:7341` by default and opens the workspace. Use `--no-open` to open the printed address yourself, or `--port` to choose another port. `--no-analysis` starts the UI and API without background project analysis.
 
-**Overview** shows the memory count, project inventory, and recent activity. **Memories** lets you search and inspect a memory's recorded sources, review history, and links. **Graph** shows project membership, recording agents, and explicit links between memories. **Context** builds a pack for the task at hand. **Integrations** shows available client features and local checks. **Features** changes the runtime controls.
+**Overview** shows the memory count, project inventory, and recent activity. **Memories** lets you search and inspect a memory's recorded sources, review history, and links. **Graph** shows project membership, recording agents, and explicit links between memories. **Context Lab** builds a pack for the task at hand. **Integrations** shows available client features and local checks. **Features** changes the runtime controls.
 
 The workspace uses up to 2,500 recent memories for its inventory and filter lists. Text search ranks matching records in the selected scope and returns up to 2,500 results. The graph displays up to 180 memories plus their project and agent nodes. The workspace indicates when it is showing a partial view.
 
@@ -34,16 +36,16 @@ The local `activity-journal.json` retains the latest 500 events. It stores short
 Choose a project and enter a task or a few search terms. Review the selected memories, their recorded references, and the reasons entries were skipped before copying the pack.
 
 ```bash
-shadow-brain context-pack "trace retry behavior in the importer" --project . --token-budget 1200 --json
+shadow-brain context-pack "trace retry behavior in the importer" --project . --profile adaptive --token-budget 1200 --json
 ```
 
 The assembler excludes archived, contested, and superseded memories before ranking. It considers up to 200 eligible candidates and selects up to 12 entries by default. The library supports a maximum of 30 entries. It groups exact content matches within a project after normalizing case and whitespace, keeps the highest-ranked representative, and carries forward bounded source references and explicit links with their originating memory IDs. Distinct statements remain separate. A recorded contradiction is called out in the pack so the agent can check it.
 
-The size limit applies to the complete Markdown, including labels and references. Long text can appear as a labeled excerpt. The assembler skips oversized entries and checks the remaining candidates. The token estimate is the rendered JavaScript string length divided by four, rounded up. It is a rough sizing guide because model tokenizers count text differently.
+The size limit applies to the complete Markdown, including labels and references. Long text can appear as a labeled excerpt. The assembler skips oversized entries and checks the remaining candidates. The legacy token estimate is the rendered JavaScript string length divided by four, rounded up. Adaptive retrieval uses a Unicode/code-aware heuristic and charges the full rendered output. Both estimates are approximate; model tokenizers differ. [Context Lab explains profiles, bounds, excerpts, and scoring](CONTEXT_LAB.md).
 
 Context stays within the selected project unless you enable `crossProjectContext` and explicitly request other projects using the workspace option, `--cross-project`, or the MCP/library option. Broader packs label each memory's project. Recorded references come from saved memory metadata. Check them against current sources before relying on a claim.
 
-Session-start briefings use the same assembler and budget. They respect the current task, project, allowed agents, runtime controls, and annotation revision. A task can still recall an older relevant lesson.
+Session-start briefings use the same assembler and budget. They respect the current task, project, allowed agents, runtime controls, annotation revision, and current memory content, including external commits and staged notes. A task can still recall an older relevant lesson.
 
 ## Review and connect memories
 

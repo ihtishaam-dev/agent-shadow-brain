@@ -37,6 +37,9 @@ jobs:
       - name: Lint
         run: npm run lint --if-present
 
+      - name: Paired context diagnostics
+        run: npm run test:context-eval
+
       - name: Dependency audit
         run: npm audit --audit-level=high
 

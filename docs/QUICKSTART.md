@@ -1,33 +1,61 @@
 # Quickstart
 
-Agent Shadow Brain 7.1.3 supports Node.js 22.12 or later in the 22.x line, 24.x, or 26 and later.
+Agent Shadow Brain 7.1.4 supports Node.js 22.12 or later in the 22.x line, 24.x, or 26 and later.
 
 ## Install and open the workspace
 
 ```bash
-npm install -g @theihtisham/agent-shadow-brain@7.1.3
+npm install -g @theihtisham/agent-shadow-brain@7.1.4
 shadow-brain --version
 ```
 
-You can also install the verified [GitHub release tarball](https://github.com/ihtishaam-dev/agent-shadow-brain/releases/download/v7.1.3/theihtisham-agent-shadow-brain-7.1.3.tgz).
+You can also install the [GitHub release tarball](https://github.com/ihtishaam-dev/agent-shadow-brain/releases/download/v7.1.4/theihtisham-agent-shadow-brain-7.1.4.tgz). Pin the exact version because an older publication named 7.2.0 sorts above 7.1.4.
 
-From your project directory, start the dashboard.
+## Try the isolated visual tour
 
 ```bash
-shadow-brain dash . --no-analysis
+shadow-brain demo workspace
 ```
 
-Open the address printed by the CLI. The default is `http://127.0.0.1:7341`. Use `--port` to choose a different port or `--no-open` to open the address yourself. The workspace shows saved memories as they become available. Select **Live** to view recorded sessions and tool calls. [Workspace guide](WORKSPACE.md)
+Open the printed workspace URL. The demo uses a fresh temporary directory, synthetic memories and recorded relationships. Its periodic calls run through the local MCP handler and produce measured telemetry; they are scripted examples, not connected coding agents. No provider or existing client configuration is needed. Changes affect the demo only. Press **Ctrl+C** to close the service and remove its temporary data.
+
+Add `--port 7341` to choose a port, or `--no-activity` to keep the initial event snapshot still. The separate, older `shadow-brain demo` action is retained; use **`demo workspace`** for this isolated tour.
+
+![Demo workspace and source coverage](assets/7.1.4-overview.png)
+
+Select **Checkout API · demo**, open **Context Lab**, and try `Fix checkout retryBudgetPolicy`. Use **Compare profiles** to inspect the legacy and adaptive selections. Open **Graph** to follow a recorded relationship, then open its memory and review the source references.
+
+![Context Lab](assets/7.1.4-context-lab.png)
+
+## Open your project workspace
+
+From your project directory, start the persistent local portal.
+
+```bash
+shadow-brain project workspace .
+```
+
+Open the address printed by the CLI; the port is selected automatically unless you pass `--port`. **Project Kit** shows observed stack markers, lets you add knowledge, and previews skills for your requirement. Saved files stay in the project after the portal closes. Select **Live** for recorded calls from its matching MCP launch. [Project Kit walkthrough](PROJECT_KIT.md)
+
+```bash
+shadow-brain project knowledge . --title "Import retries" --content "Reuse the original request ID when retrying an import." --source "docs/imports.md"
+shadow-brain context-pack "import retry request ID" --project . --db .shadow-brain/project-memory.json --profile adaptive --json
+shadow-brain project config . --target codex
+```
+
+Merge the printed recipe into your host settings. It pins the host to the same project and memory file. In Project Kit, describe your requirement, choose the client, preview the generated skill and apply it locally. After actual work, use **Memory outcomes** to record useful or unsuccessful memory reuse. [Learning controls](LEARNING.md)
+
+Existing shared-store users can continue with `shadow-brain dash . --no-analysis`; its default port is 7341. The project portal does not merge or migrate that store.
 
 ## Build a context pack
 
 In another terminal at the project root, assemble context for a task.
 
 ```bash
-shadow-brain context-pack "import retry behavior" --project . --token-budget 1200 --json
+shadow-brain context-pack "import retry behavior" --project . --profile adaptive --token-budget 1200 --json
 ```
 
-The JSON includes the selected memories, recorded sources, and exclusion reasons. In the dashboard, **Context** provides the same workflow and a copyable preview. A project needs saved memories for the pack to include them.
+The JSON includes selected memories, recorded references, exclusion reasons, and an adaptive retrieval report. Without `--profile adaptive`, CLI calls keep the established legacy behavior. In **Context Lab**, copy or download the selected Markdown. Token usage is estimated. A project needs saved memories for the pack to include them.
 
 ## Save a first memory in a scratch project
 
@@ -35,7 +63,7 @@ Create an empty scratch directory, enter it, and install the library for this ex
 
 ```bash
 npm init -y
-npm install @theihtisham/agent-shadow-brain@7.1.3
+npm install @theihtisham/agent-shadow-brain@7.1.4
 ```
 
 Create `retry-notes.md` with this decision. Retried imports should reuse the same request ID so a timeout cannot create a duplicate import.
@@ -44,9 +72,9 @@ Save the following as `first-memory.mjs`. It writes one example record to `.shad
 
 ```js
 import { resolve } from 'node:path';
-import { GlobalBrain } from '@theihtisham/agent-shadow-brain';
+import { getGlobalBrain } from '@theihtisham/agent-shadow-brain';
 
-const brain = new GlobalBrain({ dbPath: resolve('.shadow-brain/quickstart.json') });
+const brain = getGlobalBrain({ dbPath: resolve('.shadow-brain/quickstart.json') });
 await brain.init();
 
 try {
@@ -72,7 +100,8 @@ Run it and ask for context from that same memory file.
 
 ```bash
 node first-memory.mjs
-shadow-brain context-pack "import retry request ID" --project . --db .shadow-brain/quickstart.json --token-budget 600 --json
+shadow-brain context-pack "import retry request ID" --project . --db .shadow-brain/quickstart.json --profile adaptive --token-budget 600 --json
+shadow-brain memory-health --project . --db .shadow-brain/quickstart.json
 ```
 
 The result includes the example decision and its recorded source. Use the CLI or library to inspect the scratch memory file, and use the dashboard for the default workspace store.
@@ -80,10 +109,12 @@ The result includes the example decision and its recorded source. Use the CLI or
 ## Connect an MCP client
 
 ```bash
-shadow-brain clients config
+shadow-brain clients config --target codex --project .
 ```
 
-Add the printed executable and arguments to your client’s MCP settings. They launch `shadow-brain mcp --stdio`. Use the `context_pack` tool for task context and `workflow_skills` for bundled guidance. To use a custom memory store, append `--db` and its absolute path to the arguments. [Client setup guide](INTEGRATIONS.md)
+Merge the generated recipe into the host's settings. The command only prints a recipe. It uses an absolute Node executable and installed CLI path to launch the standalone service. Other targets are `claude-code`, `opencode`, `deepseek-harness`, and `portable`; omit `--target` for the original generic launch object. To use your scratch memory from the example, append `--db` and its absolute path to the launch arguments. Ask the connected host for `context_pack` with an explicit project ID and `profile: "adaptive"`. Confirm the result in the host. To see matching calls in a portal, use the project-local store and `project config` recipe above. [Client setup guide](INTEGRATIONS.md)
+
+![Integration recipes](assets/7.1.4-integrations.png)
 
 ## Add project skills
 

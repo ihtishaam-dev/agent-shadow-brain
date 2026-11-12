@@ -150,6 +150,36 @@ export const LIVE_WORKSPACE_HTML = String.raw`<!doctype html>
   .event-link { border: 0; background: transparent; color: var(--ink); padding: 0; text-align: left; font: inherit; cursor: pointer; }
   .event-link:hover, .event-link[aria-pressed="true"] { color: var(--cyan); text-decoration: underline; }
   .event-row .tag { justify-self: end; }
+  h1 { font-size: 2.25rem; }
+  .stats { background: #172b38; }
+  .stat { padding: 15px 16px; }
+  .stat dd { font-size: 1.55rem; }
+  .stat:first-child dd { color: var(--cyan); }
+  .network-body { background: radial-gradient(ellipse at 50% 50%, #1c3c4b, #121f2d 64%); }
+  .network-panel { border-color: #456679; }
+  .topology-ring { stroke-opacity: .44; }
+  .network-core .core-ring { fill: none; stroke: var(--cyan); stroke-width: 1; stroke-opacity: .36; stroke-dasharray: 2 5; }
+  .network-edge.failed { stroke: var(--rose); }
+  .network-edge.active.failed { stroke: var(--rose); }
+  .network-edge.active.reported { stroke: var(--amber); }
+  .network-node.selected-event .node-surface { stroke-width: 2.6; stroke: currentColor; }
+  .session-row[aria-pressed="true"] { box-shadow: inset 0 0 0 1px #526e80; }
+  .legend-line.failed { border-color: var(--rose); }
+  .replay-bar { display: grid; grid-template-columns: auto minmax(150px,1fr) auto; align-items: end; gap: 11px; margin-bottom: 15px; padding: 12px 15px; background: #192d3b; }
+  .replay-bar h2 { color: var(--cyan); margin-bottom: 4px; }
+  .replay-bar .replay-caption { grid-column: 1 / -1; color: var(--muted); }
+  .replay-scrub { display: grid; gap: 3px; min-width: 0; }
+  .replay-scrub label { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px; color: var(--muted); }
+  .replay-scrub input { width: 100%; min-height: 30px; margin: 0; accent-color: var(--cyan); }
+  .replay-buttons { display: flex; flex-wrap: wrap; gap: 5px; }
+  .replay-buttons .icon-button { width: 36px; padding: 0; }
+  .demo-notice { display: none; }
+  html[data-demo="true"] .demo-notice { display: flex; gap: 7px 10px; flex-wrap: wrap; padding: 8px 12px; margin-bottom: 14px; background: var(--amber-tint); color: var(--amber); border-radius: 7px; font-size: .83rem; }
+  .project-journal-notice { display: none; }
+  html[data-project-local="true"] .project-journal-notice { display: flex; gap: 4px 10px; flex-wrap: wrap; padding: 8px 12px; margin-bottom: 14px; background: var(--cyan-tint); color: var(--cyan); border-radius: 7px; font-size: .83rem; }
+  .project-journal-notice a { text-decoration: underline; text-underline-offset: 3px; }
+  .event-row[data-selected="true"] { background: var(--cyan-tint); }
+  .event-row[data-selected="true"] .event-link { color: var(--cyan); }
   @keyframes arrive { from { background: var(--cyan-tint); opacity: .8; } to { background: transparent; opacity: 1; } }
   html[data-motion="reduce"] *, html[data-motion="reduce"] *::before, html[data-motion="reduce"] *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   @media (prefers-reduced-motion: reduce) {
@@ -167,7 +197,9 @@ export const LIVE_WORKSPACE_HTML = String.raw`<!doctype html>
     .main-nav { gap: 2px; }
     .top-version { display: none; }
     .head { flex-wrap: wrap; }
+    h1 { font-size: 1.82rem; }
     .controls { justify-content: start; }
+    .replay-bar { grid-template-columns: minmax(0,1fr); }
     .stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
     .stat + .stat { border-left: 0; }
     .stat:nth-child(even) { border-left: 1px solid var(--line); }
@@ -191,20 +223,34 @@ export const LIVE_WORKSPACE_HTML = String.raw`<!doctype html>
   <div class="top-inner">
     <a class="brand" href="/" aria-label="Agent Shadow Brain workspace"><span class="brand-mark" data-icon="brand"></span><span>Agent Shadow Brain</span></a>
     <nav class="main-nav" aria-label="Navigation"><a href="/">Workspace</a><a href="/live" aria-current="page">Live</a></nav>
-    <div class="top-state"><span class="small muted mono top-version">7.1.3</span><span id="demo-tag" class="tag warn" hidden>Synthetic demo</span><span id="stream-tag" class="tag"><span class="dot"></span><span id="stream-label">Connecting</span></span></div>
+    <div class="top-state"><span class="small muted mono top-version">7.1.4</span><span id="demo-tag" class="tag warn" hidden>Synthetic demo</span><span id="stream-tag" class="tag"><span class="dot"></span><span id="stream-label">Connecting</span></span></div>
   </div>
 </header>
 <main id="live-main" tabindex="-1">
+  <div class="demo-notice"><strong>Synthetic demo</strong><span>Scripted local MCP calls use sample data. Changes affect this temporary demo only.</span></div>
+  <div class="project-journal-notice"><strong>Project journal</strong><span>Live activity comes from this project’s local store.</span><a href="/#project-kit">Open Project Kit</a></div>
   <div class="head">
     <div><h1>Live operations</h1><p class="muted small">Follow recorded agent sessions, tool calls, and reported task phases.</p></div>
     <div class="controls" aria-label="Live view controls">
       <label for="time-window" class="label">Window<select id="time-window"><option value="1">1 minute</option><option value="5">5 minutes</option><option value="15" selected>15 minutes</option><option value="60">1 hour</option></select></label>
       <button class="button" type="button" id="motion-control" aria-pressed="false"><span data-icon="motion"></span>Reduce motion</button>
       <button class="button" type="button" id="refresh"><span data-icon="refresh"></span>Refresh</button>
+      <button class="button" type="button" id="replay-start" disabled><span data-icon="replay"></span>Replay loaded events</button>
       <button class="button primary" type="button" id="pause"><span data-icon="pause"></span><span id="pause-label">Pause stream</span></button>
     </div>
   </div>
   <div class="notice" id="stream-notice" role="status">Connecting to the local event journal…</div>
+  <section class="panel replay-bar" id="replay-bar" aria-labelledby="replay-heading" hidden>
+    <div><h2 id="replay-heading" tabindex="-1">Journal replay</h2><div class="replay-buttons" aria-label="Replay controls">
+      <button class="button icon-button" type="button" id="replay-prev" aria-label="Previous event" title="Previous event"><span data-icon="prev"></span></button>
+      <button class="button" type="button" id="replay-play">Play</button>
+      <button class="button icon-button" type="button" id="replay-next" aria-label="Next event" title="Next event"><span data-icon="next"></span></button>
+    </div></div>
+    <div class="replay-scrub"><label for="replay-range"><span>Event position</span><output for="replay-range" class="small mono" id="replay-position" aria-live="off"></output></label>
+      <input type="range" min="0" max="0" value="0" id="replay-range" aria-describedby="replay-caption"></div>
+    <button class="button primary" type="button" id="replay-exit">Return to live</button>
+    <p class="small replay-caption" id="replay-caption"></p>
+  </section>
   <dl class="stats" id="live-stats" aria-label="Tool metrics in the selected window"></dl>
   <div class="ops-grid">
     <section class="panel">
@@ -214,7 +260,7 @@ export const LIVE_WORKSPACE_HTML = String.raw`<!doctype html>
     <section class="panel network-panel">
       <div class="panel-head"><div><h2>Activity network</h2><p class="small muted" id="network-count">Recorded session activity</p></div><span id="network-status" class="tag"></span></div>
       <div class="network-body"><svg id="network-svg" viewBox="0 0 720 405" role="group" aria-label="Activity network. Use arrow keys to navigate sessions."></svg></div>
-      <div class="network-caption"><span><i class="legend-line"></i>Measured activity</span><span><i class="legend-line reported"></i>Host-reported activity</span></div>
+      <div class="network-caption"><span><i class="legend-line"></i>Measured activity</span><span><i class="legend-line reported"></i>Host-reported activity</span><span><i class="legend-line failed"></i>Error or cancellation</span></div>
     </section>
     <section class="panel inspect-panel">
       <div class="panel-head"><h2>Session details</h2></div><div id="inspection" class="inspect-body"></div>
@@ -227,6 +273,7 @@ export const LIVE_WORKSPACE_HTML = String.raw`<!doctype html>
   <section class="panel">
     <div class="panel-head"><div><h2>Event timeline</h2><p class="small muted" id="timeline-scope">All sessions</p></div><div class="controls">
       <label class="label" for="event-filter">Event source<select id="event-filter"><option value="">All sources</option><option value="measured">Measured</option><option value="reported">Reported</option></select></label>
+      <label class="label" for="transport-filter">Transport<select id="transport-filter"><option value="">All transports</option><option value="mcp">MCP</option><option value="cli">CLI</option><option value="host">Host</option></select></label>
       <button class="button quiet" type="button" id="clear-session" hidden>Show all sessions</button></div>
     </div><div id="events" class="events"></div>
   </section>
@@ -240,6 +287,9 @@ const glyphs = {
   refresh: '<path d="M19.5 9a8 8 0 1 0 .3 5.5M20 4v5h-5"/>',
   pause: '<path d="M9 5v14m6-14v14"/>',
   play: '<path d="m8 5 11 7-11 7z"/>',
+  replay: '<path d="M4 11a8 8 0 1 1 2 6M4 5v6h6m2-3v5l3 2"/>',
+  prev: '<path d="M6 5v14m12-13-9 6 9 6z"/>',
+  next: '<path d="M18 5v14M6 6l9 6-9 6z"/>',
   agent: '<rect x="4.5" y="7" width="15" height="12" rx="3"/><path d="M12 7V4m-8 9H2m20 0h-2m-11-.5h.02m5.98 0H15m-5 3h4"/>',
   activity: '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
   warning: '<path d="m12 3 10 17H2L12 3zm0 6v4m0 3h.01"/>'
@@ -261,7 +311,7 @@ const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
 const state = {
   events: [], journalId: null, cursor: null, retained: 0, dropped: 0, gap: false, reset: false,
   loaded: false, paused: false, pending: false, controller: null, problem: '', checkedAt: 0, recording: null, delivery: null, demo: false,
-  selected: '', selectedEvent: '', renderKey: '', model: null, newIds: new Set()
+  selected: '', selectedEvent: '', renderKey: '', model: null, newIds: new Set(), replay: null
 };
 
 document.querySelectorAll('[data-icon]').forEach((element) => { element.innerHTML = icon(element.dataset.icon); });
@@ -325,7 +375,7 @@ function eventClass(event) {
   return event.source === 'reported' ? 'reported' : 'live';
 }
 
-function buildModel(now, minutes) {
+function buildModel(now, minutes, events = state.events) {
   const start = now - minutes * 60_000;
   const measuredStarts = new Map();
   const matched = [];
@@ -333,7 +383,7 @@ function buildModel(now, minutes) {
   const ended = new Set();
   const visible = [];
   let unmatchedEnds = 0;
-  for (const event of state.events) {
+  for (const event of events) {
     const timestamp = Date.parse(event.timestamp);
     if (!Number.isFinite(timestamp) || timestamp > now) continue;
     const key = sessionKey(event);
@@ -451,7 +501,7 @@ function pointPath(a, b, control = 0) {
 }
 
 function motionAllowed() {
-  return document.documentElement.dataset.motion !== 'reduce' && !motionPreference.matches && !state.paused && !document.hidden;
+  return document.documentElement.dataset.motion !== 'reduce' && !motionPreference.matches && !state.paused && !state.replay && !document.hidden;
 }
 
 function pulse(path, tone, index) {
@@ -471,8 +521,8 @@ function renderNetwork(model, animate) {
   $('network-count').textContent = displayedEvents ? number(displayedEvents) + ' recent events across ' + number(mapSessions.length) + ' displayed sessions' :
     'Recorded session activity';
   const omitted = model.sessions.length - mapSessions.length;
-  $('network-status').textContent = omitted > 0 ? number(omitted) + ' more in Sessions' : state.paused ? 'Paused' : '';
-  $('network-status').hidden = !omitted && !state.paused;
+  $('network-status').textContent = omitted > 0 ? number(omitted) + ' more in Sessions' : state.replay ? 'Replay' : state.paused ? 'Paused' : '';
+  $('network-status').hidden = !omitted && !state.paused && !state.replay;
   const first = state.selected || nodes[0]?.session.key;
   const primary = [];
   const links = [];
@@ -482,21 +532,21 @@ function renderNetwork(model, animate) {
   for (const { session, point, satellites: events } of nodes) {
     const selected = session.key === state.selected;
     const tone = session.pending.length ? 'live' : eventClass(session.latest);
-    const source = session.latest.source === 'reported' ? ' reported' : '';
+    const source = session.latest.source === 'reported' ? ' reported' : tone === 'failed' ? ' failed' : '';
     links.push('<path class="network-edge' + source + (selected ? ' active' : state.selected ? ' dimmed' : '') +
       '" d="' + pointPath(core, point, 10) + '"/>');
     for (const item of events) {
       const event = item.event;
       const eventTone = eventClass(event);
       const path = pointPath(point, item, 4);
-      links.push('<path class="network-edge' + (eventTone === 'reported' ? ' reported' : '') +
+      links.push('<path class="network-edge' + (eventTone === 'reported' ? ' reported' : eventTone === 'failed' ? ' failed' : '') +
         (event.id === state.selectedEvent ? ' active' : state.selected && !selected ? ' dimmed' : '') + '" d="' + path + '"/>');
       if (animate && state.newIds.has(event.id)) {
         pulses.push(pulse(pointPath(core, point, 10), eventTone, pulses.length));
         pulses.push(pulse(path, eventTone, pulses.length));
       }
       const eventLabel = describeEvent(event) + ' · ' + labelAgent(session.agent, session.transport);
-      satellites.push('<g class="network-node ' + eventTone + '" data-live-event="' + esc(event.id) + '" role="button" tabindex="' +
+      satellites.push('<g class="network-node ' + eventTone + (event.id === state.selectedEvent ? ' selected-event' : '') + '" data-live-event="' + esc(event.id) + '" role="button" tabindex="' +
         (event.id === firstEvent ? 0 : -1) + '" aria-pressed="' + (event.id === state.selectedEvent) + '" aria-label="' + esc(eventLabel) +
         '" transform="translate(' + item.x.toFixed(1) + ' ' + item.y.toFixed(1) + ')"><title>' + esc(eventLabel) +
         '</title><circle r="8" fill="transparent"/><circle class="node-surface" r="5.5"/><circle class="node-indicator" r="2.3"/></g>');
@@ -514,7 +564,7 @@ function renderNetwork(model, animate) {
   const base = '<defs><pattern id="network-grid" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".8" fill="var(--grid)"/></pattern></defs>' +
     '<rect width="720" height="405" fill="url(#network-grid)"/><ellipse class="topology-ring" cx="360" cy="202.5" rx="239" ry="143"/>' +
     '<ellipse class="topology-ring" cx="360" cy="202.5" rx="202" ry="113"/><ellipse class="topology-ring" cx="360" cy="202.5" rx="131" ry="79"/>';
-  const hub = '<g class="network-core" aria-label="Local event journal"><circle cx="360" cy="202.5" r="54"/>' +
+  const hub = '<g class="network-core" aria-label="Local event journal"><circle class="core-ring" cx="360" cy="202.5" r="64"/><circle cx="360" cy="202.5" r="54"/>' +
     '<circle class="core-inner" cx="360" cy="202.5" r="47"/><text text-anchor="middle" x="360" y="201">Shadow Brain</text>' +
     '<text class="node-subtitle" text-anchor="middle" x="360" y="217">Event journal</text></g>';
   svg.innerHTML = base + '<g aria-hidden="true">' + links.join('') + '</g>' + hub + satellites.join('') + primary.join('') +
@@ -547,6 +597,7 @@ function renderInspector(model) {
     fact('Source', event.source === 'reported' ? 'Host report' : 'Measured') +
     fact('Recorded at', clockText(event.timestamp)) + fact('Transport', transports[event.transport]) +
     fact('Duration', Number.isFinite(event.durationMs) ? durationText(event.durationMs) : '') +
+    fact('Correlation ID', event.correlationId) +
     fact('Sequence', String(event.sequence)) + '</dl>' : '';
   const projectLink = session.project ? '<a class="button quiet" href="/#memories?project=' + esc(encodeURIComponent(session.project)) +
     '">Open project memories</a>' : '';
@@ -636,21 +687,22 @@ function renderChart(id, buckets) {
 function renderEvents(model) {
   const session = model.sessions.find((item) => item.key === state.selected);
   const filter = $('event-filter').value;
-  const data = (session ? session.events : model.visible).filter((event) => !filter || event.source === filter);
+  const transport = $('transport-filter').value;
+  const data = (session ? session.events : model.visible).filter((event) => (!filter || event.source === filter) && (!transport || event.transport === transport));
   $('timeline-scope').textContent = (session ? labelAgent(session.agent, session.transport) + ' session' : 'All sessions') +
     ' · ' + number(data.length) + ' recorded events';
   $('clear-session').hidden = !session;
   const target = $('events');
   if (!data.length) {
-    target.innerHTML = blank('activity', 'No matching events', state.loaded ? 'Choose a different window or event source.' : 'Reading retained journal events.');
+    target.innerHTML = blank('activity', 'No matching events', state.loaded ? 'Choose a different window, source, or transport.' : 'Reading retained journal events.');
     return;
   }
   target.innerHTML = '<ul class="list">' + [...data].reverse().slice(0, 150).map((event) => {
     const tone = eventClass(event);
     const source = event.source === 'reported' ? 'Reported' : 'Measured';
     const extra = Number.isFinite(event.durationMs) ? ' · ' + durationText(event.durationMs) : '';
-    const meta = [event.agent ? labelAgent(event.agent, event.transport) : transports[event.transport], event.projectId].filter(Boolean).join(' · ');
-    return '<li class="event-row' + (state.newIds.has(event.id) ? ' new' : '') + '">' + timeMarkup(event.timestamp) +
+    const meta = [event.agent ? labelAgent(event.agent, event.transport) : '', transports[event.transport], event.projectId].filter(Boolean).join(' · ');
+    return '<li class="event-row' + (state.newIds.has(event.id) ? ' new' : '') + '" data-selected="' + (event.id === state.selectedEvent) + '">' + timeMarkup(event.timestamp) +
       '<span class="event-meta small muted">' + esc(meta) + '</span><div class="event-title"><button class="event-link" type="button" data-live-event="' +
       esc(event.id) + '" aria-pressed="' + (event.id === state.selectedEvent) + '">' + esc(describeEvent(event)) +
       '</button><span class="small muted">' + esc(extra) + '</span></div>' + tag(source, tone === 'reported' ? 'warn' : tone === 'failed' ? 'bad' : 'ok') + '</li>';
@@ -659,21 +711,27 @@ function renderEvents(model) {
 
 function renderStatus(model) {
   const badge = $('stream-tag');
-  const label = state.problem ? 'Disconnected' : !state.loaded ? 'Connecting' : state.paused ? 'Paused' : !state.delivery ? 'Delivery off' : 'Live';
-  badge.className = 'tag ' + (state.problem ? 'bad' : state.loaded && state.delivery && !state.paused ? 'ok' : 'warn');
+  const label = state.replay ? 'Replay' : state.problem ? 'Disconnected' : !state.loaded ? 'Connecting' : state.paused ? 'Paused' : !state.delivery ? 'Delivery off' : 'Live';
+  badge.className = 'tag ' + (state.replay ? 'warn' : state.problem ? 'bad' : state.loaded && state.delivery && !state.paused ? 'ok' : 'warn');
   badge.title = state.checkedAt ? 'Last checked ' + clockText(state.checkedAt) : '';
   $('stream-label').textContent = label;
-  $('demo-tag').hidden = !state.demo;
+  const demoBanner = document.documentElement.dataset.demo === 'true';
+  $('demo-tag').hidden = !state.demo || demoBanner;
   $('pause-label').textContent = state.paused ? 'Resume stream' : 'Pause stream';
   $('pause').querySelector('[data-icon]').innerHTML = icon(state.paused ? 'play' : 'pause');
+  $('pause').hidden = !!state.replay;
   $('pause').disabled = !state.loaded || state.delivery === false;
-  $('refresh').disabled = state.pending;
+  $('refresh').hidden = !!state.replay;
+  $('refresh').disabled = state.pending || !!state.replay;
+  $('replay-start').hidden = !!state.replay;
+  $('replay-start').disabled = !state.events.length || !!state.replay || state.delivery === false;
   const messages = [];
-  if (state.problem) messages.push(state.problem);
+  if (state.replay) messages.push('Replaying a frozen snapshot of ' + number(state.replay.events.length) + ' loaded events.');
+  else if (state.problem) messages.push(state.problem);
   else if (!state.loaded) messages.push('Connecting to the local event journal…');
   else {
     messages.push(number(model.visible.length) + ' loaded events · Last ' + model.minutes + (model.minutes === 1 ? ' minute' : ' minutes'));
-    if (state.demo) messages.push('Scripted local activity.');
+    if (state.demo && !demoBanner) messages.push('Scripted local activity.');
     if (state.recording === false) messages.push('Activity recording is off.');
     if (state.delivery === false) messages.push('Live delivery is off.');
     if (state.paused) messages.push('Stream paused.');
@@ -685,11 +743,68 @@ function renderStatus(model) {
     if (model.unmatchedEnds || model.stale) messages.push('Unmatched spans are excluded from measured result metrics.');
   }
   const notice = $('stream-notice');
-  notice.className = 'notice' + (state.problem ? ' error' : '');
+  notice.className = 'notice' + (state.problem && !state.replay ? ' error' : '');
   const settings = state.loaded && (state.recording === false || state.delivery === false);
   const markup = messages.map((message) => '<span>' + esc(message) + '</span>').join('') +
     (settings ? '<a class="button quiet" href="/#features">Open Features</a>' : '');
   if (notice.innerHTML !== markup) notice.innerHTML = markup;
+}
+
+function renderReplay() {
+  const replay = state.replay;
+  $('replay-bar').hidden = !replay;
+  if (!replay) return;
+  const { events, index, timer, incomplete } = replay;
+  const event = events[index];
+  const slider = $('replay-range');
+  slider.max = String(events.length - 1);
+  slider.value = String(index);
+  slider.disabled = events.length < 2;
+  const position = number(index + 1) + ' / ' + number(events.length) + ' · ' + clockText(event.timestamp);
+  slider.setAttribute('aria-valuetext', position + ', ' + describeEvent(event));
+  $('replay-position').textContent = position;
+  $('replay-prev').disabled = index === 0;
+  $('replay-next').disabled = index === events.length - 1;
+  $('replay-play').disabled = events.length < 2;
+  $('replay-play').textContent = timer ? 'Pause replay' : index === events.length - 1 ? 'Play from start' : 'Play replay';
+  $('replay-caption').textContent = 'Loaded sequence ' + number(events[0].sequence) + '–' + number(events.at(-1).sequence) +
+    ' · Playback advances two events per second. The time window ends at the selected event.' +
+    (incomplete ? ' Earlier events may be outside this snapshot.' : '');
+}
+
+function stopReplayPlayback() {
+  if (!state.replay?.timer) return;
+  clearInterval(state.replay.timer);
+  state.replay.timer = null;
+}
+
+function moveReplay(index) {
+  const replay = state.replay;
+  if (!replay || !Number.isInteger(index)) return;
+  replay.index = Math.max(0, Math.min(replay.events.length - 1, index));
+  if (replay.index === replay.events.length - 1) stopReplayPlayback();
+  const event = replay.events[replay.index];
+  state.selected = sessionKey(event);
+  state.selectedEvent = event.id;
+  render(true);
+}
+
+function startReplay() {
+  if (!state.events.length || state.replay || state.delivery === false) return;
+  state.controller?.abort();
+  state.replay = { events: [...state.events], index: 0, timer: null,
+    incomplete: state.gap || state.dropped > 0 || state.retained > state.events.length || state.events[0].sequence > 1 };
+  moveReplay(state.replay.events.length - 1);
+  $('replay-heading').focus();
+}
+
+function exitReplay() {
+  stopReplayPlayback();
+  state.replay = null;
+  state.paused = false;
+  render(true);
+  $('replay-start').focus();
+  void poll();
 }
 
 function focusKey() {
@@ -701,12 +816,15 @@ function focusKey() {
 }
 
 function render(force = false, animate = false) {
-  const now = Math.max(state.checkedAt || Date.now(), Date.parse(state.events.at(-1)?.timestamp) || 0);
+  const replay = state.replay;
+  const replayEvent = replay?.events[replay.index];
+  const now = replayEvent ? Date.parse(replayEvent.timestamp) : Math.max(state.checkedAt || Date.now(), Date.parse(state.events.at(-1)?.timestamp) || 0);
   const minutes = Number($('time-window').value);
-  const model = buildModel(now, minutes);
+  const model = buildModel(now, minutes, replay ? replay.events.slice(0, replay.index + 1) : state.events);
   state.model = model;
   renderStatus(model);
-  const key = [state.loaded, state.journalId, state.cursor, Math.floor(now / 15000), minutes].join('|');
+  renderReplay();
+  const key = [state.loaded, state.journalId, state.cursor, Math.floor(now / 15000), minutes, replayEvent?.sequence].join('|');
   if (!force && key === state.renderKey) return;
   state.renderKey = key;
   if (!model.sessions.some((session) => session.key === state.selected)) state.selected = '';
@@ -781,7 +899,7 @@ function acceptPage(page, animate) {
 }
 
 async function poll(manual = false) {
-  if (state.pending || (!manual && (state.paused || state.delivery === false || document.hidden))) return;
+  if (state.pending || state.replay || (!manual && (state.paused || state.delivery === false || document.hidden))) return;
   state.pending = true;
   $('refresh').disabled = true;
   const controller = new AbortController();
@@ -859,8 +977,35 @@ document.addEventListener('click', (event) => {
 $('network-svg').addEventListener('keydown', keyboardNetwork);
 $('time-window').addEventListener('change', () => render(true));
 $('event-filter').addEventListener('change', () => renderEvents(state.model));
+$('transport-filter').addEventListener('change', () => renderEvents(state.model));
 $('clear-session').addEventListener('click', () => chooseSession(''));
 $('refresh').addEventListener('click', () => { void poll(true); });
+$('replay-start').addEventListener('click', startReplay);
+$('replay-exit').addEventListener('click', exitReplay);
+$('replay-range').addEventListener('input', (event) => {
+  stopReplayPlayback();
+  moveReplay(Number(event.target.value));
+});
+$('replay-prev').addEventListener('click', () => {
+  stopReplayPlayback();
+  moveReplay(state.replay.index - 1);
+});
+$('replay-next').addEventListener('click', () => {
+  stopReplayPlayback();
+  moveReplay(state.replay.index + 1);
+});
+$('replay-play').addEventListener('click', () => {
+  const replay = state.replay;
+  if (!replay) return;
+  if (replay.timer) {
+    stopReplayPlayback();
+    renderReplay();
+    return;
+  }
+  if (replay.index === replay.events.length - 1) moveReplay(0);
+  replay.timer = setInterval(() => moveReplay(replay.index + 1), 500);
+  renderReplay();
+});
 $('pause').addEventListener('click', () => {
   state.paused = !state.paused;
   if (state.paused) {
@@ -880,7 +1025,11 @@ $('motion-control').addEventListener('click', () => {
 });
 motionPreference.addEventListener('change', syncMotion);
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) $('network-pulses')?.replaceChildren();
+  if (document.hidden) {
+    $('network-pulses')?.replaceChildren();
+    stopReplayPlayback();
+    renderReplay();
+  }
   else void poll();
 });
 syncMotion();

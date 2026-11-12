@@ -1,6 +1,7 @@
 // src/types.ts — Core type definitions for Agent Shadow Brain
 
 export type AgentTool =
+  | 'user' // Explicitly supplied memory; no coding-agent adapter.
   | 'claude-code'
   | 'kilo-code'
   | 'cline'

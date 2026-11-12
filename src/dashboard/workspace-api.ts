@@ -1,13 +1,19 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { getGlobalBrain, type GlobalBrain } from '../brain/global-brain.js';
 import { getBrainBus } from '../brain/brain-bus.js';
 import { assembleContext } from '../brain/context-assembly.js';
+import { parseContextRequest } from '../brain/context-request.js';
+import { inspectMemoryHealth } from '../brain/memory-inspection.js';
 import { FEATURE_DEFINITIONS, getFeatureSettings, type FeatureSettingsStore } from '../brain/feature-settings.js';
 import { memoryAnnotationsFor, memoryState, type MemoryAnnotationsStore, type MemoryAnnotationSnapshot } from '../brain/memory-annotations.js';
 import { normalizeMemorySources } from '../brain/memory-sources.js';
 import { inspectClientIntegrations } from '../brain/client-integrations.js';
 import { activityJournalFor, type ActivityJournal } from '../brain/activity-journal.js';
 import { reportAgentActivity } from '../brain/activity-reporting.js';
+import { inspectProject, planProjectSkill, applyProjectSkill, type ProjectSkillParams } from '../brain/project-kit.js';
+import { requireProjectStore, addProjectKnowledge } from '../brain/project-memory.js';
+import { ProjectFeedbackStore } from '../brain/project-feedback.js';
 import type { AgentTool, BrainTimelineEvent, ScoredGlobalEntry } from '../types.js';
 
 const INVENTORY_LIMIT = 2500;
@@ -20,6 +26,7 @@ export interface WorkspaceDependencies {
   projectDir?: string;
   journal?: ActivityJournal;
   demo?: boolean;
+  localProject?: boolean;
 }
 
 function sources(entry: Memory): string[] {
@@ -100,9 +107,58 @@ export async function handleWorkspaceRequest(req: IncomingMessage, res: ServerRe
     const url = new URL(req.url ?? '/', 'http://localhost');
     const route = url.pathname.slice('/api/workspace/'.length);
     const method = req.method ?? 'GET';
+    const local = dependencies.localProject && dependencies.projectDir && dependencies.brain
+      ? requireProjectStore(dependencies.projectDir, dependencies.brain) : undefined;
+    const projectRoutes = ['project-profile', 'project-knowledge', 'project-skill-preview', 'project-skill-apply', 'project-feedback'];
     const writes = ['memory-review', 'memory-link', 'memory-unlink'];
-    if (!['GET', 'POST'].includes(method) || (method === 'POST' && !['context', 'features', 'activity-report', ...writes].includes(route))) return send({ error: 'Method not allowed.' }, 405);
+    if (!['GET', 'POST'].includes(method) || (method === 'POST' && !['context', 'context-compare', 'features', 'activity-report', ...writes, ...projectRoutes.slice(1)].includes(route))) return send({ error: 'Method not allowed.' }, 405);
     const settings = dependencies.settings ?? getFeatureSettings();
+    const localActivity = () => {
+      const enabled = settings.get().features.liveActivity;
+      if (!local) return activity(enabled);
+      const journal = dependencies.journal ?? activityJournalFor(dependencies.brain!);
+      return { enabled, activity: enabled ? journal.read({ projectId: local.projectId, limit: 200 }).events.slice(-30).reverse().map(event => ({
+        id: event.id, type: event.kind, label: [event.tool, event.phase, event.outcome].filter(Boolean).join(' · ') || event.kind,
+        agent: event.agent ?? '', project: local.projectName, timestamp: event.timestamp,
+      })) : [] };
+    };
+    if (projectRoutes.includes(route)) {
+      if (!local) return send({ error: 'Open shadow-brain project workspace for project-local knowledge and skills.' }, 409);
+      if (route === 'project-profile') return send(inspectProject(local.root));
+      if (route === 'project-feedback') {
+        const feedback = new ProjectFeedbackStore(local.root, dependencies.brain!);
+        if (method === 'GET') return send(feedback.get());
+        const input = await body(req);
+        const { expectedRevision, kind, ...params } = input;
+        await dependencies.brain!.init(); dependencies.brain!.refresh();
+        if (dependencies.brain!.getStorageHealth().lastError) throw new Error('Project memory could not be read; feedback was not changed.');
+        const command = { kind: kind === 'record' ? 'upsert' : kind === 'enable' ? 'toggle' : kind, ...params };
+        return send(await feedback.update(command as Parameters<ProjectFeedbackStore['update']>[0], expectedRevision as number, 'user'));
+      }
+      if (method !== 'POST') return send({ error: 'Use POST for project knowledge and skill requests.' }, 405);
+      const input = await body(req);
+      if (route === 'project-skill-preview') return send(planProjectSkill(local.root, input as unknown as ProjectSkillParams));
+      const started = Date.now();
+      const correlationId = randomUUID();
+      const recordOperation = async (outcome?: 'success' | 'error') => {
+        if (!settings.get().features.activityRecording) return;
+        try { await (dependencies.journal ?? activityJournalFor(dependencies.brain!)).append({ projectId: local.projectId,
+          kind: outcome ? 'tool-end' : 'tool-start', source: 'reported', transport: 'host', agent: 'user', sessionId: 'project-portal',
+          tool: route, correlationId, ...(outcome ? { outcome, durationMs: Math.max(0, Date.now() - started) } : {}) }); }
+        catch { /* The committed result remains valid when optional activity recording is unavailable. */ }
+      };
+      await recordOperation();
+      let result: unknown;
+      try {
+        if (route === 'project-knowledge') result = await addProjectKnowledge(local.root, dependencies.brain!, input);
+        else {
+          const { expectedPlanHash, ...params } = input;
+          result = await applyProjectSkill(local.root, params as unknown as ProjectSkillParams, expectedPlanHash as string);
+        }
+      } catch (error) { await recordOperation('error'); throw error; }
+      await recordOperation('success');
+      return send(result);
+    }
     if (route === 'features') {
       if (method === 'POST') {
         const input = await body(req);
@@ -112,7 +168,7 @@ export async function handleWorkspaceRequest(req: IncomingMessage, res: ServerRe
       }
       return send(settingsResponse(settings));
     }
-    if (route === 'activity') return send(activity(settings.get().features.liveActivity));
+    if (route === 'activity') return send(localActivity());
     if (route === 'telemetry') {
       const flags = settings.get().features;
       const common = { checkedAt: new Date().toISOString(), liveEnabled: flags.liveActivity, recordingEnabled: flags.activityRecording, demo: dependencies.demo === true };
@@ -122,20 +178,23 @@ export async function handleWorkspaceRequest(req: IncomingMessage, res: ServerRe
       const cursor = qs.get('cursor');
       const journal = dependencies.journal ?? activityJournalFor(dependencies.brain ?? getGlobalBrain());
       const page = journal.read({ afterSequence: cursor === null ? undefined : bounded(cursor, 0, Number.MAX_SAFE_INTEGER, 0),
-        journalId: query(qs, 'journalId'), projectId: query(qs, 'project'), limit: bounded(qs.get('limit'), 200, 200) });
+        journalId: query(qs, 'journalId'), projectId: local?.projectId ?? query(qs, 'project'), limit: bounded(qs.get('limit'), 200, 200) });
       return send({ ...common, ...page, cursor: page.nextAfterSequence });
     }
     if (route === 'activity-report') {
       if (method !== 'POST') return send({ error: 'Use POST to report activity.' }, 405);
       const input = await body(req);
+      if (local && input.projectId !== undefined && input.projectId !== local.projectId) throw new TypeError('This portal is pinned to its local project.');
+      if (local) input.projectId = local.projectId;
       return send(await reportAgentActivity(dependencies.brain ?? getGlobalBrain(), settings, input, dependencies.journal));
     }
-    if (!['overview', 'memories', 'graph', 'context', 'memory', 'integrations', ...writes].includes(route)) return send({ error: 'Not found.' }, 404);
-    if (route === 'context' && method !== 'POST') return send({ error: 'Use POST for context assembly.' }, 405);
+    if (!['overview', 'memories', 'graph', 'context', 'context-compare', 'memory', 'memory-health', 'integrations', ...writes].includes(route)) return send({ error: 'Not found.' }, 404);
+    if (['context', 'context-compare'].includes(route) && method !== 'POST') return send({ error: 'Use POST for context assembly.' }, 405);
     if (writes.includes(route) && method !== 'POST') return send({ error: 'Use POST for memory changes.' }, 405);
 
     const mutationInput = writes.includes(route) ? await body(req) : undefined;
     if (mutationInput) {
+      if (local && mutationInput.projectId !== local.projectId) throw new TypeError('This portal is pinned to its local project.');
       if (!Number.isSafeInteger(mutationInput.expectedRevision) || Number(mutationInput.expectedRevision) < 0) throw new TypeError('A current expectedRevision is required.');
       const allowed = route === 'memory-review' ? ['projectId', 'memoryId', 'state', 'note', 'expectedRevision'] :
         route === 'memory-link' ? ['projectId', 'fromId', 'toId', 'type', 'note', 'expectedRevision'] : ['projectId', 'memoryId', 'linkId', 'expectedRevision'];
@@ -143,33 +202,38 @@ export async function handleWorkspaceRequest(req: IncomingMessage, res: ServerRe
     }
 
     const brain = dependencies.brain ?? getGlobalBrain();
-    if (route === 'integrations') return send(inspectClientIntegrations({ projectDir: dependencies.projectDir, brain }));
+    if (route === 'integrations') return send(inspectClientIntegrations({ projectDir: dependencies.projectDir, brain, localProjectId: local?.projectId }));
     const annotationStore = dependencies.annotations ?? memoryAnnotationsFor(brain);
     const refresh = async () => {
       await brain.init();
-      if (writes.includes(route)) brain.refresh();
-      else await brain.sync();
+      brain.refresh();
       if (brain.getStorageHealth().lastError) throw new Error('The memory store could not be read. Check storage health.');
     };
-    if (route === 'context') {
+    if (route === 'context' || route === 'context-compare') {
       const input = await body(req);
-      if (Object.keys(input).some(key => !['projectId', 'query', 'tokenBudget', 'includeCrossProject'].includes(key))) throw new TypeError('Unknown context request field.');
-      if (typeof input.projectId !== 'string' || !input.projectId.trim()) throw new TypeError('Choose a project.');
-      if (input.query !== undefined && typeof input.query !== 'string') throw new TypeError('Task must be text.');
-      if (input.includeCrossProject !== undefined && typeof input.includeCrossProject !== 'boolean') throw new TypeError('Cross-project choice must be boolean.');
-      if (input.tokenBudget !== undefined && (!Number.isSafeInteger(input.tokenBudget) || Number(input.tokenBudget) < 0 || Number(input.tokenBudget) > 12000)) throw new TypeError('Token budget must be an integer from 0 to 12000.');
+      const options = parseContextRequest(input);
+      if (local && (options.projectId !== local.projectId || options.includeCrossProject === true)) throw new TypeError('This portal is pinned to its local project.');
       const flags = settings.get().features;
       if (flags.contextAssembly) await refresh();
-      const pack = assembleContext(brain, { projectId: input.projectId, query: input.query as string | undefined,
-        tokenBudget: input.tokenBudget as number | undefined, includeCrossProject: input.includeCrossProject as boolean | undefined,
-        features: flags, annotations: flags.contextAssembly ? annotationStore.get() : undefined });
-      return send(pack);
+      const common = { ...options, features: flags, annotations: flags.contextAssembly ? annotationStore.get() : undefined,
+        feedback: flags.contextAssembly && local ? new ProjectFeedbackStore(local.root, brain).get() : undefined };
+      if (route === 'context') return send(assembleContext(brain, common));
+      const legacy = assembleContext(brain, { ...common, profile: 'legacy' });
+      const adaptive = assembleContext(brain, { ...common, profile: 'adaptive' });
+      const oldIds = new Set(legacy.entries.map(entry => entry.id));
+      const newIds = new Set(adaptive.entries.map(entry => entry.id));
+      return send({ legacy, adaptive, delta: { addedIds: [...newIds].filter(id => !oldIds.has(id)),
+        removedIds: [...oldIds].filter(id => !newIds.has(id)), sharedIds: [...newIds].filter(id => oldIds.has(id)) },
+        warnings: ['Both profiles use the same memory view. Their token estimators differ; selection changes are not proof of higher accuracy.'] });
     }
 
     await refresh();
     const annotations = annotationStore.get();
     const qs = url.searchParams;
-    const requestedProject = query(qs, 'project');
+    const requestedProject = local?.projectId ?? query(qs, 'project');
+    if (local && query(qs, 'project') && query(qs, 'project') !== local.projectId) throw new TypeError('This portal is pinned to its local project.');
+    if (route === 'memory-health') return send(inspectMemoryHealth(brain, annotations,
+      { projectId: requestedProject, limit: bounded(qs.get('limit'), 30, 100) }));
     if (route === 'memory') {
       const id = query(qs, 'id');
       if (!id || !requestedProject) throw new TypeError('Memory ID and project are required.');
@@ -206,16 +270,21 @@ export async function handleWorkspaceRequest(req: IncomingMessage, res: ServerRe
       const committed = await annotationStore.update(command, input.expectedRevision as number);
       return send({ revision: committed.revision, updatedAt: committed.updatedAt });
     }
-    const inventory = brain.timeline({ limit: INVENTORY_LIMIT });
+    const recentInventory = brain.timeline({ limit: INVENTORY_LIMIT, ...(local ? { projectId: local.projectId } : {}) });
+    const inventory = requestedProject ? brain.timeline({ projectId: requestedProject, limit: INVENTORY_LIMIT }) : recentInventory;
     const projectMap = new Map<string, { id: string; name: string; memories: number; updatedAt: string | null }>();
-    for (const entry of inventory) {
+    if (local) projectMap.set(local.projectId, { id: local.projectId, name: local.projectName, memories: 0, updatedAt: null });
+    for (const entry of recentInventory) {
       const project = projectMap.get(entry.projectId) ?? { id: entry.projectId, name: entry.projectName || entry.projectId, memories: 0, updatedAt: date(entry.createdAt) };
       project.memories++;
       projectMap.set(entry.projectId, project);
     }
+    if (requestedProject && inventory.length) projectMap.set(requestedProject, {
+      id: requestedProject, name: inventory[0].projectName || requestedProject, memories: inventory.length, updatedAt: date(inventory[0].createdAt),
+    });
     const projects = [...projectMap.values()].sort((a, b) => a.name.localeCompare(b.name));
     const facets = { projects, categories: [...new Set(inventory.map(entry => entry.category))].sort(), agents: [...new Set(inventory.map(entry => entry.agentTool))].sort() };
-    const inventoryTruncated = brain.getStats().totalEntries > inventory.length;
+    const inventoryTruncated = requestedProject ? brain.timeline({ projectId: requestedProject, limit: INVENTORY_LIMIT + 1 }).length > INVENTORY_LIMIT : brain.getStats().totalEntries > inventory.length;
     if (route === 'overview') {
       const scoped = inventory.filter(entry => !requestedProject || entry.projectId === requestedProject);
       const quality = { total: scoped.length, sourceBacked: 0, active: 0, contested: 0, archived: 0, superseded: 0, reviewed: 0 };
@@ -224,8 +293,10 @@ export async function handleWorkspaceRequest(req: IncomingMessage, res: ServerRe
         if (sources(entry).length) quality.sourceBacked++;
         if (annotations.reviews[entry.id]?.projectId === entry.projectId) quality.reviewed++;
       }
-      return send({ version: '7.1.3', totals: { projects: projects.length, memories: brain.getStats().totalEntries, agents: facets.agents.length },
-        projects, ...activity(settings.get().features.liveActivity), storageHealth: brain.getStorageHealth(),
+      return send({ version: '7.1.4', demo: dependencies.demo === true,
+        projectKit: local ? { available: true, projectId: local.projectId, projectName: local.projectName, root: local.root, storagePath: local.storagePath } : { available: false },
+        totals: { projects: projects.length, memories: local ? inventory.length : brain.getStats().totalEntries, agents: facets.agents.length },
+        projects, ...localActivity(), storageHealth: brain.getStorageHealth(),
         features: settings.get().features, recentMemories: scoped.slice(0, 5).map(entry => summary(entry, annotations)), truncated: inventoryTruncated,
         quality, scope: { projectId: requestedProject ?? null, basis: 'recent-inventory' },
         inventoryLimit: INVENTORY_LIMIT });
@@ -272,7 +343,7 @@ export async function handleWorkspaceRequest(req: IncomingMessage, res: ServerRe
       }
       const detail = summary(entry, annotations);
       nodes.push({ id: memoryNode, kind: 'memory', label: detail.title, project: entry.projectId, category: entry.category,
-        memoryId: entry.id, effectiveState: detail.effectiveState, snippet: detail.snippet, source: detail.source, agent: entry.agentTool, updatedAt: detail.updatedAt });
+        memoryId: entry.id, effectiveState: detail.effectiveState, snippet: detail.snippet, source: detail.source, sources: detail.sources, agent: entry.agentTool, updatedAt: detail.updatedAt });
       edges.push({ source: projectNode, target: memoryNode, kind: 'belongs-to' }, { source: agentNode, target: memoryNode, kind: 'recorded-by' });
     }
     const shownById = new Map(shown.map(entry => [entry.id, entry.projectId]));
@@ -284,7 +355,7 @@ export async function handleWorkspaceRequest(req: IncomingMessage, res: ServerRe
   } catch (error) {
     const code = (error as { code?: string }).code;
     send({ error: error instanceof Error ? error.message : String(error), ...(code ? { code } : {}) },
-      code === 'FEATURE_SETTINGS_CONFLICT' || code === 'ANNOTATIONS_CONFLICT' ? 409 : code === 'ANNOTATIONS_NOT_FOUND' ? 404 :
+      code === 'FEATURE_SETTINGS_CONFLICT' || code === 'ANNOTATIONS_CONFLICT' || code?.includes('CONFLICT') || code?.includes('STALE') ? 409 : code === 'ANNOTATIONS_NOT_FOUND' ? 404 :
         code === 'FEATURE_SETTINGS_INVALID_PATCH' || code === 'ANNOTATIONS_INVALID_COMMAND' || code === 'ACTIVITY_JOURNAL_INVALID_EVENT' ||
           code === 'ACTIVITY_JOURNAL_INVALID_CURSOR' || error instanceof TypeError || error instanceof RangeError ? 400 : 500);
   }

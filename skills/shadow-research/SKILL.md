@@ -9,4 +9,6 @@ Define the decision or question the evidence must answer. Start with available p
 
 Follow leads only while they can change the conclusion. Compare options using the user's actual constraints, not an exhaustive feature inventory. Report disagreement, missing evidence, and whether results are documentation-backed, fixture-tested, or demonstrated in the target environment.
 
+If project memory is relevant, retrieve a scoped adaptive context pack and inspect the source references of useful candidates. Do not treat a retrieval rank or a recorded relationship as verification. Resolve contradictions using current evidence before recording a conclusion. Keep author-generated diagnostic fixtures distinct from independent benchmarks and model answer-quality measurements.
+
 Deliver the answer or recommendation with supporting links and practical limits. Research alone does not authorize modifying configuration, installing products, contacting others, or deploying changes. Continue into implementation only when it is part of the requested task.

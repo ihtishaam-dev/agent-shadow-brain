@@ -13,7 +13,7 @@ import { WindsurfAdapter } from './windsurf.js';
 import { CopilotAdapter } from './copilot.js';
 
 /** File adapters are distinct from clients that connect through MCP and skills. */
-export const ALL_ADAPTERS: Record<Exclude<AgentTool, 'deepseek-harness'>, () => AgentAdapter> = {
+export const ALL_ADAPTERS: Record<Exclude<AgentTool, 'deepseek-harness' | 'user'>, () => AgentAdapter> = {
   'claude-code': () => new ClaudeCodeAdapter(),
   'kilo-code': () => new KiloCodeAdapter(),
   'cline': () => new ClineAdapter(),
