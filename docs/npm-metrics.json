@@ -1,40 +1,40 @@
 {
   "schemaVersion": 1,
-  "refreshedAt": "2026-11-24T20:39:56.882Z",
+  "refreshedAt": "2026-11-25T19:56:53.297Z",
   "package": "@theihtisham/agent-shadow-brain",
   "repository": "ihtishaam-dev/agent-shadow-brain",
   "latest": "7.25.0",
   "created": "2026-04-10",
   "coverage": {
     "start": "2026-04-10",
-    "end": "2026-11-23",
+    "end": "2026-11-24",
     "completeSinceCreation": true
   },
   "npm": {
-    "total": 7127,
+    "total": 7152,
     "lastDay": {
-      "downloads": 16,
-      "start": "2026-11-23",
-      "end": "2026-11-23",
+      "downloads": 15,
+      "start": "2026-11-24",
+      "end": "2026-11-24",
       "package": "@theihtisham/agent-shadow-brain"
     },
     "lastWeek": {
-      "downloads": 261,
-      "start": "2026-11-17",
-      "end": "2026-11-23",
+      "downloads": 256,
+      "start": "2026-11-18",
+      "end": "2026-11-24",
       "package": "@theihtisham/agent-shadow-brain"
     },
     "lastMonth": {
-      "downloads": 1830,
-      "start": "2026-10-25",
-      "end": "2026-11-23",
+      "downloads": 1843,
+      "start": "2026-10-26",
+      "end": "2026-11-24",
       "package": "@theihtisham/agent-shadow-brain"
     },
     "periods": [
       {
-        "downloads": 7127,
+        "downloads": 7152,
         "start": "2026-04-10",
-        "end": "2026-11-23",
+        "end": "2026-11-24",
         "package": "@theihtisham/agent-shadow-brain"
       }
     ]
