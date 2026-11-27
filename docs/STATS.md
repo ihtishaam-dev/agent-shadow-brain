@@ -1,13 +1,13 @@
 # Package and repository statistics
 
-Last successful refresh: **2026-11-26T19:37:54.153Z**. Counts are snapshots from public npm and GitHub APIs.
+Last successful refresh: **2026-11-27T19:29:08.456Z**. Counts are snapshots from public npm and GitHub APIs.
 
 | Metric | Count | Coverage |
 | --- | ---: | --- |
-| npm total downloads | **7,159** | 2026-04-10 through 2026-11-25, inclusive |
-| npm latest day | 7 | 2026-11-25 through 2026-11-25 |
-| npm last 7 days | 247 | 2026-11-19 through 2026-11-25 |
-| npm last 30 days | 1,847 | 2026-10-27 through 2026-11-25 |
+| npm total downloads | **7,169** | 2026-04-10 through 2026-11-26, inclusive |
+| npm latest day | 10 | 2026-11-26 through 2026-11-26 |
+| npm last 7 days | 252 | 2026-11-20 through 2026-11-26 |
+| npm last 30 days | 1,850 | 2026-10-28 through 2026-11-26 |
 | GitHub stars | 1 | At refresh |
 | GitHub forks | 0 | At refresh |
 | GitHub watchers | 0 | At refresh |
